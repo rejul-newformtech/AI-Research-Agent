@@ -1,6 +1,19 @@
 from fastapi import FastAPI
 
-app = FastAPI(title="Research Agent API", version="0.1.0")
+from research_agent.api.routes.ingestion import router as ingestion_router
+from research_agent.core.config import settings
+from research_agent.middleware.logging import RequestLoggingMiddleware
+
+app = FastAPI(
+    title=settings.app_name,
+    version=settings.app_version,
+    debug=settings.debug,
+)
+
+# Register request logging middleware
+app.add_middleware(RequestLoggingMiddleware)
+
+app.include_router(ingestion_router, prefix="/api/v1")
 
 
 @app.get("/")

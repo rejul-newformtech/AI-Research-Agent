@@ -8,3 +8,13 @@ wheels/
 
 # Virtual environments
 .venv
+.env
+
+# ChromaDB storage
+data/chroma/
+
+# Log files
+logs/
+
+# Graphify
+graphify-out/
