@@ -13,6 +13,7 @@ from research_agent.service.ingestion import (
     IngestionResult,
     IngestionService,
 )
+from research_agent.service.retrieval import BM25Index, HybridSearchService
 
 router = APIRouter(prefix="/ingest", tags=["Ingestion"])
 
@@ -49,10 +50,20 @@ class TextIngestRequest(BaseModel):
 
 
 class SearchRequest(BaseModel):
-    """Query payload for vector search in ChromaDB."""
+    """Query payload for vector, keyword, or hybrid search in ChromaDB."""
 
     query: str = Field(..., min_length=1, description="Search query string")
     top_k: int = Field(default=5, ge=1, le=50, description="Number of results to retrieve")
+    mode: Literal["hybrid", "dense", "sparse"] = Field(
+        default="hybrid",
+        description="Retrieval mode: 'hybrid' (BM25 + Dense RRF), 'dense' (ChromaDB vector), or 'sparse' (BM25)",
+    )
+    dense_weight: float = Field(
+        default=1.0, ge=0.0, description="Weight for dense vector ranking in RRF"
+    )
+    sparse_weight: float = Field(
+        default=1.0, ge=0.0, description="Weight for sparse BM25 ranking in RRF"
+    )
     strategy_filter: Literal["fixed", "semantic"] | None = Field(
         default=None,
         description="Filter results by chunking strategy: 'fixed', 'semantic', or None (both)",
@@ -66,12 +77,17 @@ class SearchResultItem(BaseModel):
     id: str
     text: str
     metadata: dict[str, Any]
-    distance: float
-    similarity: float
+    distance: float | None = None
+    similarity: float | None = None
+    sparse_score: float | None = None
+    rrf_score: float | None = None
+    dense_rank: int | None = None
+    sparse_rank: int | None = None
 
 
 class SearchResponse(BaseModel):
     query: str
+    mode: str = "hybrid"
     total_results: int
     collection_name: str
     results: list[SearchResultItem]
@@ -104,6 +120,8 @@ async def ingest_text_endpoint(payload: TextIngestRequest) -> IngestionResult:
         if payload.store_in_chroma and result.chunks:
             vs = ChromaService()
             vs.add_chunks(result.chunks, collection_name=payload.collection_name)
+            bm25 = BM25Index()
+            bm25.add_documents(result.chunks, persist=True)
 
         return result
     except ValueError as e:
@@ -189,6 +207,8 @@ async def ingest_pdf_endpoint(
         if store_in_chroma and result.chunks:
             vs = ChromaService()
             vs.add_chunks(result.chunks, collection_name=collection_name)
+            bm25 = BM25Index()
+            bm25.add_documents(result.chunks, persist=True)
 
         return result
     except pypdf.errors.PdfReadError as e:
@@ -213,28 +233,41 @@ async def ingest_pdf_endpoint(
     response_model=SearchResponse,
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(get_current_active_user)],
-    summary="Semantic vector search using ChromaDB",
+    summary="Search documents via Hybrid, Dense, or Sparse retrieval",
 )
 async def search_endpoint(payload: SearchRequest) -> SearchResponse:
-    """Embed the search query and perform vector similarity search against ChromaDB."""
-    service = IngestionService()
-    vs = ChromaService()
+    """Execute search across ingested research documents using Hybrid (BM25 + Dense RRF), Dense, or Sparse mode."""
+    search_svc = HybridSearchService()
 
     try:
-        query_embedding = service.embed_query(payload.query)
-
         where_filter = None
         if payload.strategy_filter:
             where_filter = {"strategy": payload.strategy_filter}
 
-        matches = vs.search(
-            query_embedding=query_embedding,
-            top_k=payload.top_k,
-            collection_name=payload.collection_name,
-            where=where_filter,
-        )
+        if payload.mode == "sparse":
+            matches = search_svc.sparse_search(
+                query=payload.query,
+                top_k=payload.top_k,
+                where=where_filter,
+            )
+        elif payload.mode == "dense":
+            matches = search_svc.dense_search(
+                query=payload.query,
+                top_k=payload.top_k,
+                where=where_filter,
+            )
+        else:
+            matches = search_svc.hybrid_search(
+                query=payload.query,
+                top_k=payload.top_k,
+                dense_weight=payload.dense_weight,
+                sparse_weight=payload.sparse_weight,
+                where=where_filter,
+            )
+
         return SearchResponse(
             query=payload.query,
+            mode=payload.mode,
             total_results=len(matches),
             collection_name=payload.collection_name,
             results=[SearchResultItem(**m) for m in matches],

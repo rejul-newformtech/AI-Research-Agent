@@ -1,18 +1,18 @@
 """Google ADK Agent definition for Research Agent."""
 
-from google import genai
 from google.adk.agents import Agent
 
 from research_agent.core.config import settings
 from research_agent.core.logger import get_logger
 from research_agent.db.chroma import ChromaService
 from research_agent.service.ingestion import IngestionService
+from research_agent.service.retrieval import BM25Index, HybridSearchService
 
 logger = get_logger("research_agent.adk")
 
 
 def search_research_documents(query: str, top_k: int = 5) -> str:
-    """Search ingested research documents and papers in the ChromaDB vector database using semantic similarity.
+    """Search ingested research documents and papers using Hybrid Search (BM25 lexical + vector dense + RRF re-ranking).
 
     Args:
         query: The search question or semantic keywords to look up.
@@ -22,28 +22,26 @@ def search_research_documents(query: str, top_k: int = 5) -> str:
         A string containing relevant document chunks, sources, and similarity scores.
     """
     try:
-        client = genai.Client(api_key=settings.gemini_api_key)
-        res = client.models.embed_content(
-            model=settings.embedding_model,
-            contents=query,
-        )
-        query_vector = res.embeddings[0].values
-
-        chroma = ChromaService()
-        matches = chroma.search(query_embedding=query_vector, top_k=top_k)
+        service = HybridSearchService()
+        matches = service.hybrid_search(query=query, top_k=top_k)
 
         if not matches:
             return f"No relevant research documents found for query: '{query}'"
 
-        results_str = [f"Found {len(matches)} relevant passage(s) for '{query}':\n"]
+        results_str = [
+            f"Found {len(matches)} relevant passage(s) via hybrid search for '{query}':\n"
+        ]
         for idx, match in enumerate(matches, 1):
             source = match.get("metadata", {}).get("source", "unknown")
-            page = match.get("metadata", {}).get("page", "")
+            page = match.get("metadata", {}).get("page_number", "")
             strategy = match.get("metadata", {}).get("strategy", "")
+            rrf_score = match.get("rrf_score")
             similarity = match.get("similarity", 0.0)
-            page_info = f" (Page {page})" if page else ""
+            sparse_score = match.get("sparse_score", 0.0)
+            page_info = f" (Page {page})" if page and page != -1 else ""
+            score_info = f"RRF Score: {rrf_score}" if rrf_score else f"Similarity: {similarity}"
             results_str.append(
-                f"[{idx}] Source: {source}{page_info} | Strategy: {strategy} | Similarity: {similarity}\n"
+                f"[{idx}] Source: {source}{page_info} | Strategy: {strategy} | {score_info} (Vector: {similarity}, BM25: {sparse_score})\n"
                 f"Content:\n{match.get('text', '').strip()}\n"
             )
 
@@ -74,6 +72,8 @@ def ingest_research_notes(text: str, source_name: str = "agent_notes") -> str:
         if result.chunks:
             chroma = ChromaService()
             count = chroma.add_chunks(result.chunks)
+            bm25 = BM25Index()
+            bm25.add_documents(result.chunks, persist=True)
             return f"Successfully ingested '{source_name}': created and stored {count} chunks into ChromaDB."
         return "No chunks generated from provided text."
     except Exception as e:
@@ -170,6 +170,8 @@ def ingest_stored_document(filename: str, strategy: str = "fixed") -> str:
             return f"No text content could be extracted or chunked from '{filename}'."
 
         count = chroma.add_chunks(result.chunks)
+        bm25 = BM25Index()
+        bm25.add_documents(result.chunks, persist=True)
         pages_info = f"{result.total_pages} pages, " if result.total_pages else ""
         return (
             f"Successfully ingested '{filename}': processed {pages_info}"

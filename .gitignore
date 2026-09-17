@@ -12,6 +12,7 @@ wheels/
 
 # ChromaDB storage
 data/chroma/
+*.pkl
 
 # Log files
 logs/
