@@ -64,7 +64,7 @@ class ChromaService:
                 "char_count": chunk.char_count,
             }
             for k, v in chunk.metadata.items():
-                if isinstance(v, (str, int, float, bool)):
+                if isinstance(v, str | int | float | bool):
                     clean_meta[k] = v
                 elif v is not None:
                     clean_meta[k] = str(v)

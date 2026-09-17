@@ -9,14 +9,17 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.20.0",
+    "bcrypt>=5.0.0",
     "chromadb>=1.5.9",
     "fastapi[standard]>=0.141.1",
+    "google-adk>=2.9.1",
     "google-genai>=2.23.0",
     "langchain-text-splitters>=1.1.2",
     "numpy>=2.5.3",
     "psycopg2-binary>=2.9.13",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
+    "pyjwt>=2.14.0",
     "pypdf>=6.18.1",
     "sqlalchemy>=2.0.54",
 ]
@@ -30,3 +33,27 @@ build-backend = "uv_build"
 
 [tool.fastapi-cli]
 root = "src/research_agent/main:app"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.6.2",
+    "ruff>=0.16.8",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort import sorting
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+ignore = [
+    "B008",  # Allow function calls in argument defaults for FastAPI Depends()
+    "E501",  # Line length is handled by ruff format
+]

@@ -1,8 +1,9 @@
 import re
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -181,8 +182,7 @@ class SemanticChunker(BaseChunker):
             current_len = sum(len(s) for s in current_chunk_sentences)
 
             should_split = (
-                dist > threshold
-                and len(current_chunk_sentences) >= self.min_sentences_per_chunk
+                dist > threshold and len(current_chunk_sentences) >= self.min_sentences_per_chunk
             ) or (current_len + len(next_sentence) > self.max_chunk_size)
 
             if should_split:

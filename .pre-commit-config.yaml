@@ -1,0 +1,28 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+default_language_version:
+  python: python3.12
+
+repos:
+  # General file hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        exclude: ^(data/|logs/)
+      - id: check-toml
+      - id: check-added-large-files
+        args: ["--maxkb=10000"]
+      - id: check-merge-conflict
+
+  # Ruff: Lightning-fast Python linter and formatter with auto-fix
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.9
+    hooks:
+      # Run the linter and automatically fix lint issues (unused imports, sorting, etc.)
+      - id: ruff
+        args: [--fix, --unsafe-fixes, --exit-non-zero-on-fix]
+      # Run the Ruff formatter
+      - id: ruff-format

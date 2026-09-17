@@ -1,20 +1,17 @@
 import io
-import os
 import uuid
 from pathlib import Path
 from typing import Any, BinaryIO, Literal
 
+import pypdf
 from google import genai
 from pydantic import BaseModel, Field
-import pypdf
 
 from research_agent.core.config import settings
 from research_agent.service.chunking import (
-    ChunkingStrategy,
     DocumentChunk,
     FixedChunker,
     SemanticChunker,
-    cosine_similarity,
 )
 
 
@@ -53,14 +50,19 @@ class IngestionService:
         chunk_overlap: int | None = None,
         embedding_model: str | None = None,
         api_key: str | None = None,
+        document_storage_dir: str | Path | None = None,
         pdf_storage_dir: str | Path | None = None,
     ):
         self.chunk_size = chunk_size or settings.default_chunk_size
-        self.chunk_overlap = chunk_overlap if chunk_overlap is not None else settings.default_chunk_overlap
+        self.chunk_overlap = (
+            chunk_overlap if chunk_overlap is not None else settings.default_chunk_overlap
+        )
         self.embedding_model = embedding_model or settings.embedding_model
         self.api_key = api_key or settings.gemini_api_key
-        self.pdf_storage_dir = Path(pdf_storage_dir or settings.pdf_storage_dir)
-        self.pdf_storage_dir.mkdir(parents=True, exist_ok=True)
+        storage_path = document_storage_dir or pdf_storage_dir or settings.document_storage_dir
+        self.document_storage_dir = Path(storage_path)
+        self.document_storage_dir.mkdir(parents=True, exist_ok=True)
+        self.pdf_storage_dir = self.document_storage_dir
 
         self._client: genai.Client | None = None
 
@@ -104,7 +106,7 @@ class IngestionService:
         stream: BinaryIO
         should_close = False
 
-        if isinstance(file_input, (str, Path)):
+        if isinstance(file_input, str | Path):
             stream = open(file_input, "rb")
             should_close = True
         elif isinstance(file_input, bytes):
@@ -172,7 +174,7 @@ class IngestionService:
         texts = [chunk.text for chunk in chunks]
         embeddings = self.embed_texts(texts, batch_size=batch_size)
 
-        for chunk, embedding in zip(chunks, embeddings):
+        for chunk, embedding in zip(chunks, embeddings, strict=False):
             chunk.embedding = embedding
 
         return chunks
@@ -225,7 +227,7 @@ class IngestionService:
     ) -> IngestionResult:
         """Extract, chunk (fixed, semantic, or both), and optionally embed a PDF document."""
         source_name = filename
-        if not source_name and isinstance(file_input, (str, Path)):
+        if not source_name and isinstance(file_input, str | Path):
             source_name = Path(file_input).name
         source_name = source_name or "uploaded_document.pdf"
 

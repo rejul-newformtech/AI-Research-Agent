@@ -1,12 +1,15 @@
 from typing import Any, Literal
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
-from pydantic import BaseModel, Field
 import pypdf.errors
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from pydantic import BaseModel, Field
 
+from research_agent.api.dependencies.auth import (
+    get_current_active_user,
+    require_roles,
+)
 from research_agent.db.chroma import ChromaService
 from research_agent.service.ingestion import (
-    ChunkingStrategy,
     IngestionResult,
     IngestionService,
 )
@@ -18,17 +21,31 @@ class TextIngestRequest(BaseModel):
     """Payload for ingesting raw text or markdown."""
 
     text: str = Field(..., min_length=1, description="Raw text content to ingest")
-    source_name: str = Field(default="raw_text", description="Name or identifier for the text source")
+    source_name: str = Field(
+        default="raw_text", description="Name or identifier for the text source"
+    )
     strategy: Literal["fixed", "semantic", "both"] = Field(
         default="both",
         description="Chunking strategy: 'fixed', 'semantic', or 'both' (runs both chunkers)",
     )
-    generate_embeddings: bool = Field(default=False, description="Whether to generate vector embeddings")
-    store_in_chroma: bool = Field(default=False, description="Whether to store chunks into ChromaDB")
-    collection_name: str = Field(default="research_documents", description="ChromaDB collection name")
-    chunk_size: int = Field(default=1000, ge=50, le=8000, description="Target chunk size for fixed chunking")
-    chunk_overlap: int = Field(default=200, ge=0, description="Overlap characters for fixed chunking")
-    metadata: dict[str, Any] = Field(default_factory=dict, description="Arbitrary metadata to attach")
+    generate_embeddings: bool = Field(
+        default=False, description="Whether to generate vector embeddings"
+    )
+    store_in_chroma: bool = Field(
+        default=False, description="Whether to store chunks into ChromaDB"
+    )
+    collection_name: str = Field(
+        default="research_documents", description="ChromaDB collection name"
+    )
+    chunk_size: int = Field(
+        default=1000, ge=50, le=8000, description="Target chunk size for fixed chunking"
+    )
+    chunk_overlap: int = Field(
+        default=200, ge=0, description="Overlap characters for fixed chunking"
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Arbitrary metadata to attach"
+    )
 
 
 class SearchRequest(BaseModel):
@@ -40,7 +57,9 @@ class SearchRequest(BaseModel):
         default=None,
         description="Filter results by chunking strategy: 'fixed', 'semantic', or None (both)",
     )
-    collection_name: str = Field(default="research_documents", description="ChromaDB collection to query")
+    collection_name: str = Field(
+        default="research_documents", description="ChromaDB collection to query"
+    )
 
 
 class SearchResultItem(BaseModel):
@@ -62,6 +81,7 @@ class SearchResponse(BaseModel):
     "/text",
     response_model=IngestionResult,
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_roles("admin", "researcher"))],
     summary="Ingest raw text or markdown content",
 )
 async def ingest_text_endpoint(payload: TextIngestRequest) -> IngestionResult:
@@ -102,6 +122,7 @@ async def ingest_text_endpoint(payload: TextIngestRequest) -> IngestionResult:
     "/pdf",
     response_model=IngestionResult,
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_roles("admin", "researcher"))],
     summary="Ingest a PDF file",
 )
 async def ingest_pdf_endpoint(
@@ -191,6 +212,7 @@ async def ingest_pdf_endpoint(
     "/search",
     response_model=SearchResponse,
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(get_current_active_user)],
     summary="Semantic vector search using ChromaDB",
 )
 async def search_endpoint(payload: SearchRequest) -> SearchResponse:

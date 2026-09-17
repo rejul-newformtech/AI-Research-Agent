@@ -1,7 +1,6 @@
 import datetime
 import json
 import logging
-import os
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -14,11 +13,11 @@ class ColoredFormatter(logging.Formatter):
     """Terminal formatter adding ANSI color escapes to log levels."""
 
     COLORS = {
-        logging.DEBUG: "\033[36m",      # Cyan
-        logging.INFO: "\033[32m",       # Green
-        logging.WARNING: "\033[33m",    # Yellow
-        logging.ERROR: "\033[31m",      # Red
-        logging.CRITICAL: "\033[1;31m", # Bold Red
+        logging.DEBUG: "\033[36m",  # Cyan
+        logging.INFO: "\033[32m",  # Green
+        logging.WARNING: "\033[33m",  # Yellow
+        logging.ERROR: "\033[31m",  # Red
+        logging.CRITICAL: "\033[1;31m",  # Bold Red
     }
     RESET = "\033[0m"
 
@@ -36,16 +35,34 @@ class JSONFormatter(logging.Formatter):
     """Formatter that outputs structured logs as JSON objects (JSON Lines)."""
 
     STANDARD_LOG_ATTRS = {
-        "args", "asctime", "created", "exc_info", "exc_text", "filename",
-        "funcName", "levelname", "levelno", "lineno", "module", "msecs",
-        "message", "msg", "name", "pathname", "process", "processName",
-        "relativeCreated", "stack_info", "thread", "threadName",
+        "args",
+        "asctime",
+        "created",
+        "exc_info",
+        "exc_text",
+        "filename",
+        "funcName",
+        "levelname",
+        "levelno",
+        "lineno",
+        "module",
+        "msecs",
+        "message",
+        "msg",
+        "name",
+        "pathname",
+        "process",
+        "processName",
+        "relativeCreated",
+        "stack_info",
+        "thread",
+        "threadName",
     }
 
     def format(self, record: logging.LogRecord) -> str:
         log_record: dict[str, Any] = {
             "timestamp": datetime.datetime.fromtimestamp(
-                record.created, tz=datetime.timezone.utc
+                record.created, tz=datetime.UTC
             ).isoformat(),
             "level": logging.getLevelName(record.levelno),
             "logger": record.name,

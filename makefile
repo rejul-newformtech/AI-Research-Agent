@@ -15,3 +15,7 @@ dev:
 .PHONY: run
 run:
 	uv run fastapi run src/research_agent/main.py
+
+.PHONY: adk
+adk:
+	uv run adk web src/research_agent/agents --port 8080
