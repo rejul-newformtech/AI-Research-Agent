@@ -68,6 +68,10 @@ class SearchRequest(BaseModel):
         default=None,
         description="Filter results by chunking strategy: 'fixed', 'semantic', or None (both)",
     )
+    use_hyde: bool = Field(
+        default=False,
+        description="Whether to apply HyDE (Hypothetical Document Embeddings) retrieval",
+    )
     collection_name: str = Field(
         default="research_documents", description="ChromaDB collection to query"
     )
@@ -241,21 +245,30 @@ async def search_endpoint(payload: SearchRequest) -> SearchResponse:
 
     try:
         where_filter = None
-        if payload.strategy_filter:
-            where_filter = {"strategy": payload.strategy_filter}
+        if payload.use_hyde:
+            from research_agent.service.advanced_retrieval import HyDEService
 
-        if payload.mode == "sparse":
+            hyde_svc = HyDEService(search_svc)
+            _, matches = hyde_svc.search(
+                query=payload.query,
+                top_k=payload.top_k,
+                where=where_filter,
+            )
+            mode_used = "hyde"
+        elif payload.mode == "sparse":
             matches = search_svc.sparse_search(
                 query=payload.query,
                 top_k=payload.top_k,
                 where=where_filter,
             )
+            mode_used = "sparse"
         elif payload.mode == "dense":
             matches = search_svc.dense_search(
                 query=payload.query,
                 top_k=payload.top_k,
                 where=where_filter,
             )
+            mode_used = "dense"
         else:
             matches = search_svc.hybrid_search(
                 query=payload.query,
@@ -264,10 +277,11 @@ async def search_endpoint(payload: SearchRequest) -> SearchResponse:
                 sparse_weight=payload.sparse_weight,
                 where=where_filter,
             )
+            mode_used = "hybrid"
 
         return SearchResponse(
             query=payload.query,
-            mode=payload.mode,
+            mode=mode_used,
             total_results=len(matches),
             collection_name=payload.collection_name,
             results=[SearchResultItem(**m) for m in matches],

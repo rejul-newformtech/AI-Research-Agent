@@ -63,6 +63,30 @@ class AgentChatResponse(BaseModel):
     tool_traces: list[ToolTrace] = Field(default_factory=list)
 
 
+class ChainedResearchRequest(BaseModel):
+    """Payload for executing a 2-call chained research query."""
+
+    query: str = Field(..., min_length=1, description="Research query or scientific question")
+    session_id: str | None = Field(default=None, description="Optional conversation session ID")
+    top_k: int = Field(default=5, ge=1, le=20, description="Number of context passages to retrieve")
+    use_hyde: bool = Field(
+        default=True, description="Enable HyDE (Hypothetical Document Embeddings)"
+    )
+    use_multiquery: bool = Field(default=True, description="Enable Multi-Query expansion")
+
+
+class ChainedResearchResponse(BaseModel):
+    """Response returned by the 2-call chained research pipeline."""
+
+    session_id: str
+    query: str
+    hypothetical_document: str | None = None
+    expanded_queries: list[str] = Field(default_factory=list)
+    retrieved_chunks: list[dict[str, Any]] = Field(default_factory=list)
+    answer: str
+    total_llm_calls: int = 2
+
+
 @router.post(
     "/chat",
     response_model=AgentChatResponse,
@@ -192,6 +216,83 @@ async def chat_with_agent(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"ADK Agent execution failed: {str(exc)}",
         ) from exc
+
+
+@router.post(
+    "/research",
+    response_model=ChainedResearchResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Deep research using 2-call chained HyDE, Multi-Query, and Grounded Synthesis",
+)
+def run_chained_research(
+    payload: ChainedResearchRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> ChainedResearchResponse:
+    """Execute a 2-call chained RAG pipeline:
+
+    Call 1: Query expansion (HyDE hypothetical answer + Multi-Query variations).
+    Retrieval: Hybrid RRF search across all query representations.
+    Call 2: Grounded answer synthesis citing document names and page numbers.
+    The conversation turn is automatically recorded into persistent session memory.
+    """
+    from research_agent.service.advanced_retrieval import ChainedRAGPipeline
+
+    session_id = payload.session_id or str(uuid.uuid4())
+
+    # Ensure chat session exists
+    memory_service.get_or_create_session(
+        db=db,
+        session_id=session_id,
+        user_id=current_user.id,
+        initial_prompt=payload.query,
+    )
+
+    pipeline = ChainedRAGPipeline()
+    result = pipeline.run(
+        query=payload.query,
+        top_k=payload.top_k,
+        use_hyde=payload.use_hyde,
+        use_multiquery=payload.use_multiquery,
+    )
+
+    # Persist the conversation turn to conversational memory
+    memory_service.save_message(
+        db=db,
+        session_id=session_id,
+        role="user",
+        content=payload.query,
+    )
+    memory_service.save_message(
+        db=db,
+        session_id=session_id,
+        role="assistant",
+        content=result.synthesized_answer,
+        tool_traces=[
+            {
+                "type": "chained_rag",
+                "provenance": [
+                    {
+                        "id": c.get("id"),
+                        "source": c.get("metadata", {}).get("source"),
+                        "page_number": c.get("metadata", {}).get("page_number"),
+                        "rrf_score": c.get("rrf_score"),
+                    }
+                    for c in result.retrieved_chunks
+                ],
+            }
+        ],
+    )
+
+    return ChainedResearchResponse(
+        session_id=session_id,
+        query=payload.query,
+        hypothetical_document=result.hypothetical_document,
+        expanded_queries=result.expanded_queries,
+        retrieved_chunks=result.retrieved_chunks,
+        answer=result.synthesized_answer,
+        total_llm_calls=result.total_llm_calls,
+    )
 
 
 @router.get(

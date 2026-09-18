@@ -37,10 +37,15 @@ def create_db_engine():
 
     if url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}
-        db_path_str = url.replace("sqlite:///", "")
-        if db_path_str and not db_path_str.startswith(":memory:"):
-            db_path = Path(db_path_str)
-            db_path.parent.mkdir(parents=True, exist_ok=True)
+        if ":memory:" in url:
+            from sqlalchemy.pool import StaticPool
+
+            kwargs["poolclass"] = StaticPool
+        else:
+            db_path_str = url.replace("sqlite:///", "")
+            if db_path_str:
+                db_path = Path(db_path_str)
+                db_path.parent.mkdir(parents=True, exist_ok=True)
     else:
         # PostgreSQL / MySQL enterprise connection pooling
         kwargs.update(

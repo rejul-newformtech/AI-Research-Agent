@@ -46,8 +46,14 @@ async def get_current_user(
     except jwt.PyJWTError as err:
         raise credentials_exception from err
 
-    # Query user by username or id
-    stmt = select(User).where((User.username == token_data.sub) | (User.id == token_data.user_id))
+    # Query user by username or fallback to id
+    if token_data.sub:
+        stmt = select(User).where(User.username == token_data.sub)
+    elif token_data.user_id is not None:
+        stmt = select(User).where(User.id == token_data.user_id)
+    else:
+        raise credentials_exception
+
     user = db.scalar(stmt)
     if user is None:
         raise credentials_exception

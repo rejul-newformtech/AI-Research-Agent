@@ -183,6 +183,27 @@ def ingest_stored_document(filename: str, strategy: str = "fixed") -> str:
         return f"Error ingesting '{filename}': {str(e)}"
 
 
+def advanced_research_query(query: str, top_k: int = 5) -> str:
+    """Execute deep research using HyDE (Hypothetical Document Embeddings) and Multi-Query expansion with chained synthesis.
+
+    Args:
+        query: The research question to investigate.
+        top_k: Number of relevant passages to retrieve (default 5).
+
+    Returns:
+        A grounded academic response citing specific sources and page numbers.
+    """
+    try:
+        from research_agent.service.advanced_retrieval import ChainedRAGPipeline
+
+        pipeline = ChainedRAGPipeline()
+        result = pipeline.run(query=query, top_k=top_k, use_hyde=True, use_multiquery=True)
+        return result.synthesized_answer
+    except Exception as e:
+        logger.error(f"Error executing advanced research query: {e}")
+        return f"Error executing advanced research query: {str(e)}"
+
+
 # Define the root Google ADK Agent
 root_agent = Agent(
     name="research_agent",
@@ -191,7 +212,7 @@ root_agent = Agent(
         "You are an expert AI Research Assistant equipped with document ingestion and semantic search tools.\n"
         "Your role is to:\n"
         "1. Answer research questions accurately using facts from the persistent research knowledge base.\n"
-        "2. When asked about papers, books, topics, or literature, use the `search_research_documents` tool to find relevant passages.\n"
+        "2. When asked about papers, books, topics, or literature, use `advanced_research_query` or `search_research_documents`.\n"
         "3. When asked what documents, papers, or books are available locally, use `list_stored_documents`.\n"
         "4. When asked to read, load, or ingest a document from local storage (such as a PDF in data/documents), use `ingest_stored_document`.\n"
         "5. When asked to record, save, or ingest raw research notes or findings from the conversation, use `ingest_research_notes`.\n"
@@ -199,6 +220,7 @@ root_agent = Agent(
         "7. Be concise, academic, and structured in your explanations."
     ),
     tools=[
+        advanced_research_query,
         search_research_documents,
         list_stored_documents,
         ingest_stored_document,
