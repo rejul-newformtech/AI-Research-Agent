@@ -7,11 +7,11 @@ os.environ["JWT_SECRET_KEY"] = "test-secret-key-at-least-32-bytes-long-for-hmac-
 
 from fastapi.testclient import TestClient
 
-import research_agent.models  # noqa: F401 - Register all models with Base.metadata
-from research_agent.db.session import Base
-from research_agent.db.session import SessionLocal as TestSessionLocal
-from research_agent.db.session import engine as test_engine
-from research_agent.main import app
+import app.models  # noqa: F401 - Register all models with Base.metadata
+from app.db.session import Base
+from app.db.session import SessionLocal as TestSessionLocal
+from app.db.session import engine as test_engine
+from app.main import app
 
 __all__ = ["Base", "TestSessionLocal", "init_test_db", "test_client", "test_engine"]
 

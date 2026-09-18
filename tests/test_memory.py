@@ -10,9 +10,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-at-least-32-bytes-long-for-hmac-sha256"
 
-from research_agent.models.chat import ChatMessage
-from research_agent.models.user import User
-from research_agent.service.memory import ConversationMemoryService
+from app.models.chat import ChatMessage
+from app.models.user import User
+from app.service.memory import ConversationMemoryService
 from tests.test_db import TestSessionLocal, init_test_db
 from tests.test_db import test_client as client
 

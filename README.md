@@ -158,7 +158,7 @@ An enterprise-grade AI Research Assistant built with **FastAPI**, **Google GenAI
    ```bash
    make dev
    # or
-   uv run fastapi dev src/research_agent/main.py
+   uv run fastapi dev app/main.py
    ```
    The interactive Swagger documentation will be live at:
    👉 **http://localhost:8000/docs**

@@ -13,12 +13,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-at-least-32-bytes-long-for-hmac-sha256"
 
-from research_agent.service.advanced_retrieval import (
+from app.service.advanced_retrieval import (
     ChainedRAGPipeline,
     HyDEService,
     MultiQueryService,
 )
-from research_agent.service.retrieval import HybridSearchService
+from app.service.retrieval import HybridSearchService
 from tests.test_db import init_test_db
 from tests.test_db import test_client as client
 
@@ -183,9 +183,9 @@ class TestAdvancedRetrievalAPI(unittest.TestCase):
             json={"username": "adv_tester", "password": "Password123!"},
         ).json()["access_token"]
 
-    @patch("research_agent.service.advanced_retrieval.ChainedRAGPipeline.run")
+    @patch("app.service.advanced_retrieval.ChainedRAGPipeline.run")
     def test_chained_research_endpoint(self, mock_pipeline_run):
-        from research_agent.service.advanced_retrieval import ChainedRAGResult
+        from app.service.advanced_retrieval import ChainedRAGResult
 
         mock_pipeline_run.return_value = ChainedRAGResult(
             query="What is Moore's Law?",

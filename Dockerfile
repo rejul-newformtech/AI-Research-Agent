@@ -51,4 +51,4 @@ USER appuser
 EXPOSE 8000
 
 # Run FastAPI
-CMD ["fastapi", "run", "src/research_agent/main.py", "--port", "8000", "--host", "0.0.0.0"]
+CMD ["fastapi", "run", "app/main.py", "--port", "8000", "--host", "0.0.0.0"]

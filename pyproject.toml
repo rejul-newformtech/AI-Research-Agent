@@ -26,14 +26,18 @@ dependencies = [
 ]
 
 [project.scripts]
-research-agent = "research_agent:main"
+research-agent = "app.main:main"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]
 build-backend = "uv_build"
 
+[tool.uv.build-backend]
+module-root = ""
+module-name = "app"
+
 [tool.fastapi-cli]
-root = "src/research_agent/main:app"
+root = "app.main:app"
 
 [dependency-groups]
 dev = [
