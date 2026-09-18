@@ -10,9 +10,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-at-least-32-bytes-long-for-hmac-sha256"
 
-from research_agent.models.chat import ChatMessage
-from research_agent.models.user import User
-from research_agent.service.memory import ConversationMemoryService
+from app.models.chat import ChatMessage
+from app.models.user import User
+from app.service.memory import ConversationMemoryService
 from tests.test_db import TestSessionLocal, init_test_db
 from tests.test_db import test_client as client
 
@@ -116,44 +116,45 @@ class TestSessionAPI(unittest.TestCase):
     def setUpClass(cls):
         init_test_db()
 
-        # Register User A
-        client.post(
+        # Ensure User A
+        reg_a = client.post(
             "/api/v1/auth/register",
             json={
-                "email": "user_a@example.com",
-                "username": "user_a",
+                "email": "session_user_alpha@example.com",
+                "username": "session_user_alpha",
                 "password": "Password123!",
                 "role": "researcher",
             },
-        )
+        ).json()
+        cls.user_a_id = reg_a["id"]
         cls.token_a = client.post(
             "/api/v1/auth/login",
-            json={"username": "user_a", "password": "Password123!"},
+            json={"username": "session_user_alpha", "password": "Password123!"},
         ).json()["access_token"]
 
-        # Register User B
-        client.post(
+        # Ensure User B
+        reg_b = client.post(
             "/api/v1/auth/register",
             json={
-                "email": "user_b@example.com",
-                "username": "user_b",
+                "email": "session_user_beta@example.com",
+                "username": "session_user_beta",
                 "password": "Password123!",
                 "role": "researcher",
             },
-        )
+        ).json()
+        cls.user_b_id = reg_b["id"]
         cls.token_b = client.post(
             "/api/v1/auth/login",
-            json={"username": "user_b", "password": "Password123!"},
+            json={"username": "session_user_beta", "password": "Password123!"},
         ).json()["access_token"]
 
     def test_session_endpoints_and_isolation(self):
         db = TestSessionLocal()
-        user_a = db.query(User).filter(User.username == "user_a").first()
         mem = ConversationMemoryService()
 
         # Seed a session for User A
         mem.get_or_create_session(
-            db, session_id="user_a_session", user_id=user_a.id, initial_prompt="Hello from A"
+            db, session_id="user_a_session", user_id=self.user_a_id, initial_prompt="Hello from A"
         )
         mem.save_message(db, session_id="user_a_session", role="user", content="Question A")
         mem.save_message(db, session_id="user_a_session", role="assistant", content="Answer A")

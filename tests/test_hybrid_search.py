@@ -12,8 +12,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-at-least-32-bytes-long-for-hmac-sha256"
 
-from research_agent.service.chunking import DocumentChunk
-from research_agent.service.retrieval import (
+from app.service.chunking import DocumentChunk
+from app.service.retrieval import (
     BM25Index,
     HybridSearchService,
     ReciprocalRankFusion,

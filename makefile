@@ -10,12 +10,12 @@ help:
 
 .PHONY: dev
 dev:
-	uv run fastapi dev src/research_agent/main.py
+	uv run fastapi dev app/main.py
 
 .PHONY: run
 run:
-	uv run fastapi run src/research_agent/main.py
+	uv run fastapi run app/main.py
 
 .PHONY: adk
 adk:
-	uv run adk web src/research_agent/agents --port 8080
+	uv run adk web app/agents --port 8080
