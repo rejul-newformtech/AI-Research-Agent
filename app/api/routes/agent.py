@@ -44,7 +44,7 @@ memory_service = ConversationMemoryService(default_window_size=10)
     status_code=status.HTTP_200_OK,
     summary="Chat with Research Assistant Agent (ReAct Reasoning Loop)",
 )
-def chat_with_agent(
+async def chat_with_agent(
     payload: AgentChatRequest,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
@@ -114,7 +114,7 @@ def chat_with_agent(
     status_code=status.HTTP_200_OK,
     summary="Deep research using 2-call chained HyDE, Multi-Query, and Grounded Synthesis",
 )
-def run_chained_research(
+async def run_chained_research(
     payload: ChainedResearchRequest,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
@@ -211,7 +211,7 @@ def run_chained_research(
     status_code=status.HTTP_200_OK,
     summary="Execute multi-step ReAct (Reasoning + Action + Observation) Agent Loop",
 )
-def run_react_agent_loop(
+async def run_react_agent_loop(
     payload: ReActAgentRequest,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
@@ -253,7 +253,7 @@ def run_react_agent_loop(
     response_model=list[ChatSessionSummaryResponse],
     summary="List all chat sessions for the authenticated user",
 )
-def list_user_chat_sessions(
+async def list_user_chat_sessions(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> list[dict[str, Any]]:
@@ -266,7 +266,7 @@ def list_user_chat_sessions(
     response_model=ChatSessionDetailResponse,
     summary="Get full conversation history for a specific session",
 )
-def get_session_history(
+async def get_session_history(
     session_id: str,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
@@ -314,7 +314,7 @@ async def delete_chat_session(
     "/info",
     summary="Retrieve Agent Details",
 )
-def get_agent_info() -> dict[str, Any]:
+async def get_agent_info() -> dict[str, Any]:
     """Return metadata about the unified ReAct Research Assistant agent and its configured tools."""
     react_service = ReActAgentService()
     tool_names = list(react_service.tool_registry.keys())
