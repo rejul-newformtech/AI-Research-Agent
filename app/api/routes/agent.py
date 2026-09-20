@@ -12,14 +12,18 @@ from sqlalchemy.orm import Session
 
 from app.agents.research_assistant.agent import root_agent
 from app.api.dependencies.auth import get_current_active_user
-from app.api.schemas.chat import (
-    ChatSessionDetailResponse,
-    ChatSessionSummaryResponse,
-)
 from app.core.config import settings
 from app.core.logger import get_logger
 from app.db.session import get_db
 from app.models import ChatSession, User
+from app.schema.chat import (
+    ChatSessionDetailResponse,
+    ChatSessionSummaryResponse,
+)
+from app.schema.structured_output import (
+    ResearchSynthesisModel,
+    UserProfileContext,
+)
 from app.service.memory import ConversationMemoryService
 
 logger = get_logger("app.api.agent")
@@ -73,6 +77,16 @@ class ChainedResearchRequest(BaseModel):
         default=True, description="Enable HyDE (Hypothetical Document Embeddings)"
     )
     use_multiquery: bool = Field(default=True, description="Enable Multi-Query expansion")
+    expertise_level: str = Field(
+        default="expert",
+        description="Target audience expertise ('expert', 'intermediate', 'novice')",
+    )
+    target_tone: str = Field(
+        default="academic", description="Response tone ('academic', 'executive', 'didactic')"
+    )
+    custom_instructions: str | None = Field(
+        default=None, description="Optional custom prompt directives"
+    )
 
 
 class ChainedResearchResponse(BaseModel):
@@ -84,6 +98,7 @@ class ChainedResearchResponse(BaseModel):
     expanded_queries: list[str] = Field(default_factory=list)
     retrieved_chunks: list[dict[str, Any]] = Field(default_factory=list)
     answer: str
+    structured_synthesis: ResearchSynthesisModel | None = None
     total_llm_calls: int = 2
 
 
@@ -248,12 +263,31 @@ def run_chained_research(
         initial_prompt=payload.query,
     )
 
+    # Construct user profile context dynamically
+    user_profile = UserProfileContext(
+        username=current_user.username,
+        role=current_user.role,
+        expertise_level=payload.expertise_level,
+        target_tone=payload.target_tone,
+        custom_instructions=payload.custom_instructions,
+    )
+
+    # Fetch recent history window for conversation continuity
+    recent_messages = memory_service.get_windowed_history(db=db, session_id=session_id)
+    history_context = [
+        {"role": msg.role, "content": msg.content}
+        for msg in recent_messages
+        if msg.role in ("user", "assistant")
+    ]
+
     pipeline = ChainedRAGPipeline()
     result = pipeline.run(
         query=payload.query,
         top_k=payload.top_k,
         use_hyde=payload.use_hyde,
         use_multiquery=payload.use_multiquery,
+        user_profile=user_profile,
+        history=history_context,
     )
 
     # Persist the conversation turn to conversational memory
@@ -291,6 +325,7 @@ def run_chained_research(
         expanded_queries=result.expanded_queries,
         retrieved_chunks=result.retrieved_chunks,
         answer=result.synthesized_answer,
+        structured_synthesis=result.structured_synthesis,
         total_llm_calls=result.total_llm_calls,
     )
 

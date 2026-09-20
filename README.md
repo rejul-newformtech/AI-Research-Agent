@@ -187,7 +187,7 @@ uv run pre-commit run --all-files
 - [x] **Stage 001**: Document Ingestion (Fixed + Semantic Chunking) & Persistent Conversational Memory.
 - [x] **Stage 002**: Hybrid Search (`BM25Plus` + ChromaDB) with Reciprocal Rank Fusion (RRF) Re-ranking.
 - [x] **Stage 003**: Advanced Retrieval (HyDE, Multi-Query) and 2-Call Chained RAG Synthesis.
-- [ ] **Stage 004**: Structured Output (Typed Pydantic Models) & Dynamic System Prompting.
+- [x] **Stage 004**: Structured Output (Typed Pydantic Models) & Dynamic System Prompting.
 - [ ] **Stage 005**: ReAct Agent Loop (Reasoning + Tool execution cycles).
 - [ ] **Stage 006**: MCP Server (3 Tools + 1 Resource) & A2A Server with Agent Card.
 - [ ] **Stage 007**: Evaluation Report & Benchmarks.

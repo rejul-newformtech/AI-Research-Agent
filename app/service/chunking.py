@@ -2,7 +2,7 @@ import re
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 import numpy as np
@@ -10,7 +10,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pydantic import BaseModel, Field
 
 
-class ChunkingStrategy(str, Enum):
+class ChunkingStrategy(StrEnum):
     FIXED = "fixed"
     SEMANTIC = "semantic"
     BOTH = "both"

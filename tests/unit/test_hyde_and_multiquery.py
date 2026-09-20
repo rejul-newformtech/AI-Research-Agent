@@ -1,17 +1,7 @@
-"""Unit and integration tests for Advanced Retrieval (HyDE, Multi-Query) and Chained RAG Pipeline."""
+"""Unit tests for HyDE (Hypothetical Document Embeddings) and Multi-Query services."""
 
-import os
-import sys
 import unittest
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-# Ensure project root is in python path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-# Configure test in-memory SQLite database before other imports
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
-os.environ["JWT_SECRET_KEY"] = "test-secret-key-at-least-32-bytes-long-for-hmac-sha256"
 
 from app.service.advanced_retrieval import (
     ChainedRAGPipeline,
@@ -19,8 +9,6 @@ from app.service.advanced_retrieval import (
     MultiQueryService,
 )
 from app.service.retrieval import HybridSearchService
-from tests.test_db import init_test_db
-from tests.test_db import test_client as client
 
 
 class TestHyDEService(unittest.TestCase):
@@ -100,19 +88,16 @@ class TestMultiQueryService(unittest.TestCase):
 
         fused = MultiQueryService._fuse_multiple_rankings([list_1, list_2], top_k=3)
         self.assertEqual(len(fused), 3)
-        # doc_a appeared in both rankings, so it should rank first
         self.assertEqual(fused[0]["id"], "doc_a")
 
 
-class TestChainedRAGPipeline(unittest.TestCase):
-    """Unit tests for the 2-call LLM chained pipeline."""
+class TestChainedRAGPipelineUnit(unittest.TestCase):
+    """Unit test verifying the 2-call LLM sequence in ChainedRAGPipeline."""
 
     @patch("google.genai.Client")
     def test_chained_pipeline_executes_two_calls(self, mock_client_cls):
         mock_client = MagicMock()
 
-        # Call 1: HyDE / Multi-Query generation
-        # Call 2: Grounded answer synthesis
         resp_call1 = MagicMock()
         resp_call1.text = (
             "Hypothetical document on Maxwell's equations and electromagnetic induction."
@@ -160,78 +145,6 @@ class TestChainedRAGPipeline(unittest.TestCase):
         self.assertIn("physics.pdf", result.synthesized_answer)
         self.assertEqual(len(result.retrieved_chunks), 1)
         self.assertIsNotNone(result.hypothetical_document)
-
-
-class TestAdvancedRetrievalAPI(unittest.TestCase):
-    """Integration tests for the /api/v1/agent/research and search endpoints."""
-
-    @classmethod
-    def setUpClass(cls):
-        init_test_db()
-        # Register and login test researcher
-        client.post(
-            "/api/v1/auth/register",
-            json={
-                "email": "adv_tester@example.com",
-                "username": "adv_tester",
-                "password": "Password123!",
-                "role": "researcher",
-            },
-        )
-        cls.token = client.post(
-            "/api/v1/auth/login",
-            json={"username": "adv_tester", "password": "Password123!"},
-        ).json()["access_token"]
-
-    @patch("app.service.advanced_retrieval.ChainedRAGPipeline.run")
-    def test_chained_research_endpoint(self, mock_pipeline_run):
-        from app.service.advanced_retrieval import ChainedRAGResult
-
-        mock_pipeline_run.return_value = ChainedRAGResult(
-            query="What is Moore's Law?",
-            hypothetical_document="Moore's Law is an empirical observation.",
-            expanded_queries=["semiconductor scaling", "transistor count density"],
-            retrieved_chunks=[
-                {
-                    "id": "chunk_moore",
-                    "text": "Moore's Law states that transistor density doubles every 2 years.",
-                    "metadata": {"source": "electronics.pdf", "page_number": 4},
-                    "rrf_score": 0.033,
-                }
-            ],
-            synthesized_answer="Moore's Law predicts transistor doubling [Source: electronics.pdf, Page 4].",
-            total_llm_calls=2,
-        )
-
-        res = client.post(
-            "/api/v1/agent/research",
-            headers={"Authorization": f"Bearer {self.token}"},
-            json={
-                "query": "What is Moore's Law?",
-                "top_k": 3,
-                "use_hyde": True,
-                "use_multiquery": True,
-            },
-        )
-
-        self.assertEqual(res.status_code, 200)
-        data = res.json()
-        self.assertEqual(data["total_llm_calls"], 2)
-        self.assertIn("electronics.pdf", data["answer"])
-        self.assertEqual(len(data["retrieved_chunks"]), 1)
-        self.assertIsNotNone(data["session_id"])
-
-        # Verify conversational memory recorded this turn
-        session_id = data["session_id"]
-        sess_res = client.get(
-            f"/api/v1/agent/sessions/{session_id}",
-            headers={"Authorization": f"Bearer {self.token}"},
-        )
-        self.assertEqual(sess_res.status_code, 200)
-        sess_data = sess_res.json()
-        self.assertEqual(len(sess_data["messages"]), 2)
-        self.assertEqual(sess_data["messages"][0]["role"], "user")
-        self.assertEqual(sess_data["messages"][1]["role"], "assistant")
 
 
 if __name__ == "__main__":
