@@ -2,7 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
-from sqlalchemy.orm import Session
+import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schema.agent import ReActExecutionTrace
 from app.service.react_agent import ReActAgentService
@@ -48,8 +49,9 @@ def test_react_parse_model_output_final_answer():
     assert "Transistors operate" in final_answer
 
 
+@pytest.mark.asyncio
 @patch("google.genai.Client")
-def test_react_loop_direct_final_answer(mock_client_cls, db: Session):
+async def test_react_loop_direct_final_answer(mock_client_cls, db: AsyncSession):
     mock_client = MagicMock()
     mock_resp = MagicMock()
     mock_resp.text = (
@@ -62,7 +64,7 @@ def test_react_loop_direct_final_answer(mock_client_cls, db: Session):
     service = ReActAgentService()
     service.client = mock_client
 
-    answer, trace, structured = service.run(
+    answer, trace, structured = await service.run(
         query="What is Moore's Law?",
         db=db,
         session_id="test_react_direct_sess",
@@ -77,8 +79,9 @@ def test_react_loop_direct_final_answer(mock_client_cls, db: Session):
     assert trace.steps[0].action is None
 
 
+@pytest.mark.asyncio
 @patch("google.genai.Client")
-def test_react_loop_multi_step_action_then_answer(mock_client_cls, db: Session):
+async def test_react_loop_multi_step_action_then_answer(mock_client_cls, db: AsyncSession):
     mock_client = MagicMock()
 
     # Turn 1: Thought + Action (search)
@@ -107,7 +110,7 @@ def test_react_loop_multi_step_action_then_answer(mock_client_cls, db: Session):
         return_value="[1] Source: physics.pdf (Page 22) | Content: Bell states describe maximally entangled pairs."
     )
 
-    answer, trace, structured = service.run(
+    answer, trace, structured = await service.run(
         query="What is quantum entanglement?",
         db=db,
         session_id="test_react_multistep_sess",
@@ -127,8 +130,9 @@ def test_react_loop_multi_step_action_then_answer(mock_client_cls, db: Session):
     assert trace.steps[1].action is None
 
 
+@pytest.mark.asyncio
 @patch("google.genai.Client")
-def test_react_loop_max_iterations_guard(mock_client_cls, db: Session):
+async def test_react_loop_max_iterations_guard(mock_client_cls, db: AsyncSession):
     mock_client = MagicMock()
 
     # Always return an action to test hitting max_iterations
@@ -154,7 +158,7 @@ def test_react_loop_max_iterations_guard(mock_client_cls, db: Session):
     service.client = mock_client
     service.tool_registry["search_research_documents"] = MagicMock(return_value="Sample doc text.")
 
-    answer, trace, _ = service.run(
+    answer, trace, _ = await service.run(
         query="Test query?",
         db=db,
         session_id="test_react_max_iter_sess",

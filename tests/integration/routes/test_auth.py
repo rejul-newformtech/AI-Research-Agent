@@ -3,15 +3,20 @@
 import pytest
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
 
 
-def test_register_user_success(client: TestClient, db: Session):
+@pytest.mark.asyncio
+async def test_register_user_success(client: TestClient, db: AsyncSession):
     # Ensure cleanup
-    db.query(User).filter(User.username == "dr_watson_api").delete()
-    db.commit()
+    stmt = select(User).where(User.username == "dr_watson_api")
+    user = await db.scalar(stmt)
+    if user:
+        await db.delete(user)
+        await db.commit()
 
     payload = {
         "email": "researcher_api@example.com",

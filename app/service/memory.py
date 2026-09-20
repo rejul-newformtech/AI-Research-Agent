@@ -3,7 +3,7 @@
 from typing import Any
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chat import ChatMessage, ChatSession
 
@@ -14,9 +14,9 @@ class ConversationMemoryService:
     def __init__(self, default_window_size: int = 10):
         self.default_window_size = default_window_size
 
-    def get_or_create_session(
+    async def get_or_create_session(
         self,
-        db: Session,
+        db: AsyncSession,
         session_id: str,
         user_id: int,
         initial_prompt: str = "",
@@ -26,7 +26,7 @@ class ConversationMemoryService:
             ChatSession.id == session_id,
             ChatSession.user_id == user_id,
         )
-        session = db.scalar(stmt)
+        session = await db.scalar(stmt)
         if session:
             return session
 
@@ -43,13 +43,13 @@ class ConversationMemoryService:
             title=title or "New Conversation",
         )
         db.add(session)
-        db.commit()
-        db.refresh(session)
+        await db.commit()
+        await db.refresh(session)
         return session
 
-    def save_message(
+    async def save_message(
         self,
-        db: Session,
+        db: AsyncSession,
         session_id: str,
         role: str,
         content: str,
@@ -65,17 +65,17 @@ class ConversationMemoryService:
         db.add(message)
 
         # Touch session updated_at
-        session = db.get(ChatSession, session_id)
+        session = await db.get(ChatSession, session_id)
         if session:
             session.updated_at = func.now()
 
-        db.commit()
-        db.refresh(message)
+        await db.commit()
+        await db.refresh(message)
         return message
 
-    def get_windowed_history(
+    async def get_windowed_history(
         self,
-        db: Session,
+        db: AsyncSession,
         session_id: str,
         max_messages: int | None = None,
     ) -> list[ChatMessage]:
@@ -90,14 +90,15 @@ class ConversationMemoryService:
             .order_by(ChatMessage.id.desc())
             .limit(limit)
         )
-        recent_messages = list(db.scalars(stmt).all())
+        result = await db.scalars(stmt)
+        recent_messages = list(result.all())
         # Return in chronological order
         recent_messages.reverse()
         return recent_messages
 
-    def list_user_sessions(
+    async def list_user_sessions(
         self,
-        db: Session,
+        db: AsyncSession,
         user_id: int,
     ) -> list[dict[str, Any]]:
         """List all conversation sessions belonging to a specific user with message counts."""
@@ -111,8 +112,9 @@ class ConversationMemoryService:
             .group_by(ChatSession.id)
             .order_by(ChatSession.updated_at.desc())
         )
+        res = await db.execute(stmt)
         results = []
-        for session, count in db.execute(stmt):
+        for session, count in res.all():
             results.append(
                 {
                     "id": session.id,
@@ -124,9 +126,9 @@ class ConversationMemoryService:
             )
         return results
 
-    def get_session_details(
+    async def get_session_details(
         self,
-        db: Session,
+        db: AsyncSession,
         session_id: str,
         user_id: int,
     ) -> ChatSession | None:
@@ -135,18 +137,18 @@ class ConversationMemoryService:
             ChatSession.id == session_id,
             ChatSession.user_id == user_id,
         )
-        return db.scalar(stmt)
+        return await db.scalar(stmt)
 
-    def delete_session(
+    async def delete_session(
         self,
-        db: Session,
+        db: AsyncSession,
         session_id: str,
         user_id: int,
     ) -> bool:
         """Delete a chat session and all its messages (cascade), verifying user ownership."""
-        session = self.get_session_details(db, session_id, user_id)
+        session = await self.get_session_details(db, session_id, user_id)
         if not session:
             return False
-        db.delete(session)
-        db.commit()
+        await db.delete(session)
+        await db.commit()
         return True

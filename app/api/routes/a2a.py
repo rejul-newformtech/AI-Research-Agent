@@ -4,7 +4,7 @@ import time
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import get_current_active_user
 from app.core.config import settings
@@ -130,7 +130,7 @@ async def get_agent_card(request: Request) -> AgentCard:
 async def execute_a2a_query(
     payload: A2AQueryRequest,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> A2AQueryResponse:
     """Execute an incoming research query delegated by a peer agent.
 
@@ -153,7 +153,7 @@ async def execute_a2a_query(
     if payload.mode == "react":
         react_service = ReActAgentService()
         session_id = f"a2a_{payload.sender_agent_id}_{int(time.time())}"
-        final_answer, trace, structured = react_service.run(
+        final_answer, trace, structured = await react_service.run(
             query=payload.query,
             db=db,
             user_id=current_user.username,

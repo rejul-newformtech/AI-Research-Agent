@@ -12,7 +12,7 @@ from typing import Any
 
 from google import genai
 from google.adk.agents import Agent
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.logger import get_logger
@@ -373,10 +373,10 @@ class ReActAgentService:
 
         return thought, action, action_input, None
 
-    def run(
+    async def run(
         self,
         query: str,
-        db: Session,
+        db: AsyncSession,
         user_id: str = "anonymous",
         session_id: str | None = None,
         max_iterations: int = 5,
@@ -385,13 +385,13 @@ class ReActAgentService:
         """Execute the ReAct loop up to max_iterations."""
         session_id = session_id or f"react_sess_{abs(hash(query)) % 1000000}"
 
-        self.memory_service.get_or_create_session(
+        await self.memory_service.get_or_create_session(
             db=db,
             session_id=session_id,
             user_id=1,
             initial_prompt=query,
         )
-        self.memory_service.save_message(
+        await self.memory_service.save_message(
             db=db,
             session_id=session_id,
             role="user",
@@ -408,7 +408,7 @@ class ReActAgentService:
             dynamic_prefix = self.prompt_builder.build_system_prompt(user_profile)
             system_prompt = f"{dynamic_prefix}\n\n{system_prompt}"
 
-        history = self.memory_service.get_windowed_history(db=db, session_id=session_id)
+        history = await self.memory_service.get_windowed_history(db=db, session_id=session_id)
         history_str = ""
         if len(history) > 1:
             history_str = "\n".join(f"{m.role.capitalize()}: {m.content}" for m in history[:-1])
@@ -499,7 +499,7 @@ class ReActAgentService:
             final_answer = synth_resp.text or "Max iterations reached without sufficient evidence."
             termination_reason = "max_iterations_reached"
 
-        self.memory_service.save_message(
+        await self.memory_service.save_message(
             db=db,
             session_id=session_id,
             role="assistant",

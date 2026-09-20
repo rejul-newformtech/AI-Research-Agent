@@ -4,17 +4,18 @@ import os
 from collections.abc import AsyncGenerator, Generator
 
 # 1. Configure test environment variables before importing app
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-at-least-32-bytes-long-for-hmac-sha256"
 
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token, hash_password
-from app.db.session import Base, SessionLocal, engine
+from app.db.session import AsyncSessionLocal, Base, engine
 from app.main import app
 from app.models.user import User, UserRole
 from app.service.chunking import DocumentChunk
@@ -24,23 +25,22 @@ from app.service.chunking import DocumentChunk
 # ============================================================================
 
 
-@pytest.fixture(scope="session", autouse=True)
-def setup_test_database():
+@pytest_asyncio.fixture(scope="session", loop_scope="session", autouse=True)
+async def setup_test_database():
     """Create in-memory SQLite tables once for the test session."""
-    Base.metadata.create_all(bind=engine)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     yield
-    Base.metadata.drop_all(bind=engine)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
 
 
-@pytest.fixture
-def db() -> Generator[Session, None, None]:
+@pytest_asyncio.fixture
+async def db() -> AsyncGenerator[AsyncSession, None]:
     """Provide an isolated database session that rolls back and closes after each test."""
-    session = SessionLocal()
-    try:
+    async with AsyncSessionLocal() as session:
         yield session
-    finally:
-        session.rollback()
-        session.close()
+        await session.rollback()
 
 
 # ============================================================================
@@ -68,8 +68,9 @@ async def async_client() -> AsyncGenerator[AsyncClient, None]:
 # ============================================================================
 
 
-def _get_or_create_user(db: Session, username: str, email: str, role: UserRole) -> User:
-    user = db.query(User).filter(User.username == username).first()
+async def _get_or_create_user(db: AsyncSession, username: str, email: str, role: UserRole) -> User:
+    stmt = select(User).where(User.username == username)
+    user = await db.scalar(stmt)
     if not user:
         user = User(
             email=email,
@@ -79,15 +80,15 @@ def _get_or_create_user(db: Session, username: str, email: str, role: UserRole) 
             is_active=True,
         )
         db.add(user)
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
     return user
 
 
-@pytest.fixture
-def researcher_user(db: Session) -> User:
+@pytest_asyncio.fixture
+async def researcher_user(db: AsyncSession) -> User:
     """Create or return a standard researcher user."""
-    return _get_or_create_user(
+    return await _get_or_create_user(
         db,
         username="fixture_researcher",
         email="fixture_researcher@example.com",
@@ -129,10 +130,10 @@ async def async_researcher_client(
         yield ac
 
 
-@pytest.fixture
-def admin_user(db: Session) -> User:
+@pytest_asyncio.fixture
+async def admin_user(db: AsyncSession) -> User:
     """Create or return a standard admin user."""
-    return _get_or_create_user(
+    return await _get_or_create_user(
         db,
         username="fixture_admin",
         email="fixture_admin@example.com",

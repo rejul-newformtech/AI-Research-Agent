@@ -45,6 +45,7 @@ class ChatSession(Base):
         back_populates="session",
         cascade="all, delete-orphan",
         order_by="ChatMessage.id",
+        lazy="selectin",
     )
 
     def __repr__(self) -> str:
@@ -73,7 +74,9 @@ class ChatMessage(Base):
     )
 
     # Relationships
-    session: Mapped[ChatSession] = relationship("ChatSession", back_populates="messages")
+    session: Mapped[ChatSession] = relationship(
+        "ChatSession", back_populates="messages", lazy="selectin"
+    )
 
     def __repr__(self) -> str:
         snippet = (self.content[:30] + "...") if len(self.content) > 30 else self.content

@@ -3,19 +3,21 @@
 import pytest
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
-from sqlalchemy.orm import Session
+from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token
 from app.models.user import User, UserRole
 from app.service.memory import ConversationMemoryService
 
 
-def test_session_endpoints_and_isolation(client: TestClient, db: Session):
+@pytest.mark.asyncio
+async def test_session_endpoints_and_isolation(client: TestClient, db: AsyncSession):
     # Ensure fresh test users
-    db.query(User).filter(
-        User.username.in_(["session_user_alpha_int", "session_user_beta_int"])
-    ).delete(synchronize_session=False)
-    db.commit()
+    await db.execute(
+        delete(User).where(User.username.in_(["session_user_alpha_int", "session_user_beta_int"]))
+    )
+    await db.commit()
 
     user_a = User(
         email="session_user_alpha_int@example.com",
@@ -33,9 +35,9 @@ def test_session_endpoints_and_isolation(client: TestClient, db: Session):
     )
     db.add(user_a)
     db.add(user_b)
-    db.commit()
-    db.refresh(user_a)
-    db.refresh(user_b)
+    await db.commit()
+    await db.refresh(user_a)
+    await db.refresh(user_b)
 
     token_a = create_access_token(
         {"sub": user_a.username, "user_id": user_a.id, "role": user_a.role}
@@ -49,14 +51,16 @@ def test_session_endpoints_and_isolation(client: TestClient, db: Session):
     mem = ConversationMemoryService()
 
     # Seed a session for User A
-    mem.get_or_create_session(
+    await mem.get_or_create_session(
         db,
         session_id="user_a_session_int",
         user_id=user_a.id,
         initial_prompt="Hello from A",
     )
-    mem.save_message(db, session_id="user_a_session_int", role="user", content="Question A")
-    mem.save_message(db, session_id="user_a_session_int", role="assistant", content="Answer A")
+    await mem.save_message(db, session_id="user_a_session_int", role="user", content="Question A")
+    await mem.save_message(
+        db, session_id="user_a_session_int", role="assistant", content="Answer A"
+    )
 
     # User A can list their sessions
     res_a = client.get(

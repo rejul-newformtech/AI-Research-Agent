@@ -112,6 +112,26 @@ class Settings(BaseSettings):
             return f"mysql+pymysql://{user_part}{self.db_host}:{self.db_port}/{self.db_name}"
         return f"sqlite:///data/{self.db_name}.db"
 
+    @property
+    def effective_async_database_url(self) -> str:
+        """Construct an async-compatible database URL (aiosqlite / asyncpg)."""
+        url = self.effective_database_url
+        if url.startswith("sqlite+aiosqlite://"):
+            return url
+        if url.startswith("sqlite:///"):
+            return url.replace("sqlite:///", "sqlite+aiosqlite:///", 1)
+        if url.startswith("sqlite://"):
+            return url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+        if url.startswith("postgresql+asyncpg://"):
+            return url
+        if url.startswith("postgres://"):
+            return url.replace("postgres://", "postgresql+asyncpg://", 1)
+        if url.startswith("postgresql+psycopg2://"):
+            return url.replace("postgresql+psycopg2://", "postgresql+asyncpg://", 1)
+        if url.startswith("postgresql://"):
+            return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
+
     jwt_secret_key: str = Field(
         default="research-agent-secret-key-please-change-in-production",
         validation_alias=AliasChoices("JWT_SECRET_KEY", "jwt_secret_key"),

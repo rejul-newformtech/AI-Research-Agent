@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import (
     get_current_active_user,
@@ -35,13 +35,13 @@ router = APIRouter(prefix="/auth", tags=["Authentication & Authorization"])
     status_code=status.HTTP_201_CREATED,
     summary="Register a new user",
 )
-def register_user(
+async def register_user(
     payload: UserRegisterRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
     """Register a new user account with unique email and username."""
     # Check for existing email or username
-    existing_user = db.scalar(
+    existing_user = await db.scalar(
         select(User).where((User.email == payload.email) | (User.username == payload.username))
     )
     if existing_user:
@@ -64,15 +64,19 @@ def register_user(
         is_active=True,
     )
     db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    await db.commit()
+    await db.refresh(new_user)
     logger.info(f"New user registered: '{new_user.username}' with role '{new_user.role}'.")
     return new_user
 
 
-def _authenticate_and_create_token(username: str, password: str, db: Session) -> TokenResponse:
+async def _authenticate_and_create_token(
+    username: str, password: str, db: AsyncSession
+) -> TokenResponse:
     """Internal helper to authenticate credentials and issue a JWT token."""
-    user = db.scalar(select(User).where((User.username == username) | (User.email == username)))
+    user = await db.scalar(
+        select(User).where((User.username == username) | (User.email == username))
+    )
     if not user or not verify_password(password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -107,12 +111,12 @@ def _authenticate_and_create_token(username: str, password: str, db: Session) ->
     response_model=TokenResponse,
     summary="Login with JSON credentials",
 )
-def login_json(
+async def login_json(
     payload: UserLoginRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
     """Authenticate with username/email and password via JSON payload."""
-    return _authenticate_and_create_token(payload.username, payload.password, db)
+    return await _authenticate_and_create_token(payload.username, payload.password, db)
 
 
 @router.get(
@@ -133,9 +137,9 @@ def get_my_profile(
     dependencies=[Depends(require_roles("admin"))],
     summary="List all users (Admin only)",
 )
-def list_all_users(
-    db: Session = Depends(get_db),
+async def list_all_users(
+    db: AsyncSession = Depends(get_db),
 ) -> list[User]:
     """Return a list of all registered users. Restricted to users with the 'admin' role."""
-    users = list(db.scalars(select(User).order_by(User.id)).all())
-    return users
+    result = await db.scalars(select(User).order_by(User.id))
+    return list(result.all())

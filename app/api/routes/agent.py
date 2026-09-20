@@ -4,7 +4,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.research_assistant.agent import ReActAgentService
 from app.api.dependencies.auth import get_current_active_user
@@ -47,7 +47,7 @@ memory_service = ConversationMemoryService(default_window_size=10)
 async def chat_with_agent(
     payload: AgentChatRequest,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> AgentChatResponse:
     """Send a prompt to the unified ReAct Research Assistant Agent with persistent conversational memory and step tracing.
 
@@ -68,7 +68,7 @@ async def chat_with_agent(
     )
 
     react_service = ReActAgentService(memory_service=memory_service)
-    final_answer, trace, _ = react_service.run(
+    final_answer, trace, _ = await react_service.run(
         query=payload.message,
         db=db,
         user_id=user_id,
@@ -114,10 +114,10 @@ async def chat_with_agent(
     status_code=status.HTTP_200_OK,
     summary="Deep research using 2-call chained HyDE, Multi-Query, and Grounded Synthesis",
 )
-async def run_chained_research(
+async def chained_research_pipeline(
     payload: ChainedResearchRequest,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> ChainedResearchResponse:
     """Execute a 2-call chained RAG pipeline:
 
@@ -131,7 +131,7 @@ async def run_chained_research(
     session_id = payload.session_id or str(uuid.uuid4())
 
     # Ensure chat session exists
-    memory_service.get_or_create_session(
+    await memory_service.get_or_create_session(
         db=db,
         session_id=session_id,
         user_id=current_user.id,
@@ -148,7 +148,7 @@ async def run_chained_research(
     )
 
     # Fetch recent history window for conversation continuity
-    recent_messages = memory_service.get_windowed_history(db=db, session_id=session_id)
+    recent_messages = await memory_service.get_windowed_history(db=db, session_id=session_id)
     history_context = [
         {"role": msg.role, "content": msg.content}
         for msg in recent_messages
@@ -166,13 +166,13 @@ async def run_chained_research(
     )
 
     # Persist the conversation turn to conversational memory
-    memory_service.save_message(
+    await memory_service.save_message(
         db=db,
         session_id=session_id,
         role="user",
         content=payload.query,
     )
-    memory_service.save_message(
+    await memory_service.save_message(
         db=db,
         session_id=session_id,
         role="assistant",
@@ -214,7 +214,7 @@ async def run_chained_research(
 async def run_react_agent_loop(
     payload: ReActAgentRequest,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> ReActAgentResponse:
     """Execute the iterative ReAct (Reasoning + Action + Observation) loop with transparent step tracing."""
     from app.agents.research_assistant.agent import ReActAgentService
@@ -231,7 +231,7 @@ async def run_react_agent_loop(
     )
 
     react_service = ReActAgentService(memory_service=memory_service)
-    final_answer, trace, structured = react_service.run(
+    final_answer, trace, structured = await react_service.run(
         query=payload.query,
         db=db,
         user_id=current_user.username,
@@ -255,10 +255,10 @@ async def run_react_agent_loop(
 )
 async def list_user_chat_sessions(
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> list[dict[str, Any]]:
     """Return all conversation sessions created by the currently authenticated user."""
-    return memory_service.list_user_sessions(db=db, user_id=current_user.id)
+    return await memory_service.list_user_sessions(db=db, user_id=current_user.id)
 
 
 @router.get(
@@ -269,10 +269,10 @@ async def list_user_chat_sessions(
 async def get_session_history(
     session_id: str,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> ChatSession:
     """Retrieve full chronological conversation message thread for a given session."""
-    session_obj = memory_service.get_session_details(
+    session_obj = await memory_service.get_session_details(
         db=db,
         session_id=session_id,
         user_id=current_user.id,
@@ -293,10 +293,10 @@ async def get_session_history(
 async def delete_chat_session(
     session_id: str,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     """Delete a conversation session and all its associated messages."""
-    deleted = memory_service.delete_session(
+    deleted = await memory_service.delete_session(
         db=db,
         session_id=session_id,
         user_id=current_user.id,
