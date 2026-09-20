@@ -3,7 +3,7 @@ from logging.config import fileConfig
 
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import async_engine_from_config
 
 import app.models  # noqa: F401
 from alembic import context
@@ -18,16 +18,18 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+# Inject database URL dynamically from application settings (app.core.config.Settings)
+config.set_main_option("sqlalchemy.url", settings.effective_async_database_url)
+
 target_metadata = Base.metadata
 
 
-def get_url() -> str:
-    return settings.effective_async_database_url
-
-
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode."""
-    url = get_url()
+    """Run migrations in 'offline' mode.
+
+    Configures the context with just a URL from application settings via config.
+    """
+    url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -47,16 +49,17 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
-    """Run migrations in 'online' mode using AsyncEngine."""
-    url = get_url()
+    """Run migrations in 'online' mode using AsyncEngine configured from settings."""
     connect_args = {}
-    if "sqlite" in url:
+    db_url = config.get_main_option("sqlalchemy.url") or ""
+    if "sqlite" in db_url:
         connect_args["check_same_thread"] = False
 
-    connectable = create_async_engine(
-        url,
-        connect_args=connect_args,
+    connectable = async_engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=connect_args,
     )
 
     async with connectable.connect() as connection:
