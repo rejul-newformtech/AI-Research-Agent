@@ -555,3 +555,7 @@ class ReActAgentService:
             key_takeaways=["Synthesized via iterative ReAct reasoning cycles"],
             confidence_score=0.90 if unique_citations else 0.75,
         )
+
+
+# Global singleton instance of the unified ReAct Agent
+react_agent = ReActAgentService()

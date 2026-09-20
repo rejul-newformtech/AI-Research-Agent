@@ -202,3 +202,75 @@ async def test_async_react_endpoint(mock_react_run, async_researcher_client: Asy
     data = res.json()
     assert data["answer"] == "Async ReAct answer."
     assert data["trace"]["total_iterations"] == 1
+
+
+@patch("app.service.react_agent.ReActAgentService.run")
+def test_chat_endpoint_uses_react_service(
+    mock_react_run, client: TestClient, researcher_headers: dict[str, str]
+):
+    """Verify that POST /api/v1/agent/chat runs the ReAct thinking engine and exposes thoughts in tool_traces."""
+    from app.schema.agent import ReActExecutionTrace, ReActStep
+
+    mock_react_run.return_value = (
+        "ReAct reasoned answer [Source: paper.pdf, Page 1].",
+        ReActExecutionTrace(
+            steps=[
+                ReActStep(
+                    step_number=1,
+                    thought="Need to check literature for photonics.",
+                    action="search_research_documents",
+                    action_input={"query": "photonics"},
+                    observation="Found paper.pdf page 1.",
+                ),
+                ReActStep(
+                    step_number=2,
+                    thought="Sufficient evidence found to formulate answer.",
+                    action=None,
+                    action_input=None,
+                    observation=None,
+                ),
+            ],
+            total_iterations=2,
+            is_terminated=True,
+            termination_reason="final_answer_reached",
+        ),
+        None,
+    )
+
+    res = client.post(
+        "/api/v1/agent/chat",
+        headers=researcher_headers,
+        json={
+            "message": "Explain silicon photonics.",
+        },
+    )
+
+    assert res.status_code == 200
+    data = res.json()
+    assert data["agent_name"] == "research_agent"
+    assert data["response"] == "ReAct reasoned answer [Source: paper.pdf, Page 1]."
+    assert len(data["tool_traces"]) == 3
+    # Step 1 thought
+    assert data["tool_traces"][0]["type"] == "thought"
+    assert data["tool_traces"][0]["response"] == "Need to check literature for photonics."
+    # Step 1 action
+    assert data["tool_traces"][1]["type"] == "function_call"
+    assert data["tool_traces"][1]["name"] == "search_research_documents"
+    # Step 2 thought
+    assert data["tool_traces"][2]["type"] == "thought"
+    assert data["tool_traces"][2]["response"] == "Sufficient evidence found to formulate answer."
+
+
+def test_agent_info_endpoint(client: TestClient):
+    """Verify GET /api/v1/agent/info reports the unified ReAct agent and all 5 research tools."""
+    res = client.get("/api/v1/agent/info")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["name"] == "research_agent"
+    assert "ReAct" in data["framework"]
+    assert len(data["tools"]) == 5
+    assert "search_research_documents" in data["tools"]
+    assert "advanced_research_query" in data["tools"]
+    assert "list_stored_documents" in data["tools"]
+    assert "ingest_stored_document" in data["tools"]
+    assert "ingest_research_notes" in data["tools"]

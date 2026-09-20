@@ -1,4 +1,4 @@
-"""Pydantic schemas for Google ADK Agent interaction, tool traces, and chained RAG."""
+"""Pydantic schemas for the unified ReAct Research Assistant Agent, tool traces, and chained RAG."""
 
 from typing import Any
 
@@ -8,7 +8,7 @@ from app.schema.structured_output import ResearchSynthesisModel
 
 
 class AgentChatRequest(BaseModel):
-    """Request schema for interacting with the Google ADK Research Agent."""
+    """Request schema for interacting with the ReAct Research Assistant Agent."""
 
     message: str = Field(..., min_length=1, description="User question or research prompt")
     session_id: str | None = Field(default=None, description="Optional conversation session ID")
@@ -27,7 +27,7 @@ class ToolTrace(BaseModel):
 
 
 class AgentChatResponse(BaseModel):
-    """Response schema returned by the Google ADK Research Agent."""
+    """Response schema returned by the ReAct Research Assistant Agent."""
 
     response: str
     session_id: str

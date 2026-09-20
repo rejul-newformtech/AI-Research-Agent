@@ -1,26 +1,31 @@
-"""FastAPI routes for Google ADK Agent interaction, conversational memory, and session management."""
+"""FastAPI routes for the unified ReAct Research Assistant Agent, conversational memory, and session management."""
 
 import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from google.adk.runners import InMemoryRunner
-from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.agents.research_assistant.agent import ReActAgentService, root_agent
+from app.agents.research_assistant.agent import ReActAgentService
 from app.api.dependencies.auth import get_current_active_user
 from app.core.config import settings
 from app.core.logger import get_logger
 from app.db.session import get_db
 from app.models import ChatSession, User
-from app.schema.agent import ReActAgentRequest, ReActAgentResponse
+from app.schema.agent import (
+    AgentChatRequest,
+    AgentChatResponse,
+    ChainedResearchRequest,
+    ChainedResearchResponse,
+    ReActAgentRequest,
+    ReActAgentResponse,
+    ToolTrace,
+)
 from app.schema.chat import (
     ChatSessionDetailResponse,
     ChatSessionSummaryResponse,
 )
 from app.schema.structured_output import (
-    ResearchSynthesisModel,
     UserProfileContext,
 )
 from app.service.memory import ConversationMemoryService
@@ -29,76 +34,8 @@ logger = get_logger("app.api.agent")
 
 router = APIRouter(prefix="/agent", tags=["Agent"])
 
-# Global ADK runner for the research agent
-adk_runner = InMemoryRunner(agent=root_agent)
-
 # Conversational memory service with a default sliding window of 10 messages (5 turns)
 memory_service = ConversationMemoryService(default_window_size=10)
-
-
-class AgentChatRequest(BaseModel):
-    """Request schema for interacting with the Google ADK Research Agent."""
-
-    message: str = Field(..., min_length=1, description="User question or research prompt")
-    session_id: str | None = Field(default=None, description="Optional conversation session ID")
-    user_id: str | None = Field(
-        default=None, description="Optional user identifier (defaults to authenticated username)"
-    )
-
-
-class ToolTrace(BaseModel):
-    """Execution trace of an agent tool invocation."""
-
-    type: str
-    name: str | None = None
-    args: dict[str, Any] | None = None
-    response: Any | None = None
-
-
-class AgentChatResponse(BaseModel):
-    """Response schema returned by the Google ADK Research Agent."""
-
-    response: str
-    session_id: str
-    user_id: str
-    agent_name: str
-    model: str
-    tool_traces: list[ToolTrace] = Field(default_factory=list)
-
-
-class ChainedResearchRequest(BaseModel):
-    """Payload for executing a 2-call chained research query."""
-
-    query: str = Field(..., min_length=1, description="Research query or scientific question")
-    session_id: str | None = Field(default=None, description="Optional conversation session ID")
-    top_k: int = Field(default=5, ge=1, le=20, description="Number of context passages to retrieve")
-    use_hyde: bool = Field(
-        default=True, description="Enable HyDE (Hypothetical Document Embeddings)"
-    )
-    use_multiquery: bool = Field(default=True, description="Enable Multi-Query expansion")
-    expertise_level: str = Field(
-        default="expert",
-        description="Target audience expertise ('expert', 'intermediate', 'novice')",
-    )
-    target_tone: str = Field(
-        default="academic", description="Response tone ('academic', 'executive', 'didactic')"
-    )
-    custom_instructions: str | None = Field(
-        default=None, description="Optional custom prompt directives"
-    )
-
-
-class ChainedResearchResponse(BaseModel):
-    """Response returned by the 2-call chained research pipeline."""
-
-    session_id: str
-    query: str
-    hypothetical_document: str | None = None
-    expanded_queries: list[str] = Field(default_factory=list)
-    retrieved_chunks: list[dict[str, Any]] = Field(default_factory=list)
-    answer: str
-    structured_synthesis: ResearchSynthesisModel | None = None
-    total_llm_calls: int = 2
 
 
 @router.post(
@@ -370,16 +307,6 @@ async def delete_chat_session(
             detail=f"Chat session '{session_id}' not found.",
         )
 
-    # Clean up runner memory
-    try:
-        await adk_runner.session_service.delete_session(
-            app_name=adk_runner.app_name,
-            user_id=current_user.username,
-            session_id=session_id,
-        )
-    except Exception:
-        pass
-
     return {"status": "deleted", "session_id": session_id}
 
 
@@ -387,13 +314,23 @@ async def delete_chat_session(
     "/info",
     summary="Retrieve Agent Details",
 )
-async def get_agent_info() -> dict[str, Any]:
-    """Return metadata about the current Google ADK agent and its configured tools."""
-    tool_names = [getattr(t, "__name__", str(t)) for t in (root_agent.tools or [])]
+def get_agent_info() -> dict[str, Any]:
+    """Return metadata about the unified ReAct Research Assistant agent and its configured tools."""
+    react_service = ReActAgentService()
+    tool_names = list(react_service.tool_registry.keys())
+    tools_manifest = [
+        {
+            "name": name,
+            "description": (getattr(func, "__doc__", "") or "").split("\n\n")[0].strip(),
+        }
+        for name, func in react_service.tool_registry.items()
+    ]
     return {
-        "name": root_agent.name,
+        "name": "research_agent",
+        "framework": "ReAct (Reasoning + Action + Observation)",
         "model": settings.gemini_model,
         "embedding_model": settings.embedding_model,
         "tools": tool_names,
-        "instruction": root_agent.instruction,
+        "tools_manifest": tools_manifest,
+        "instruction": "ReAct framework with iterative Thought, Action, and Observation reasoning loop.",
     }
