@@ -233,15 +233,19 @@ root_agent = Agent(
     name="research_agent",
     model=settings.gemini_model,
     instruction=(
-        "You are an expert AI Research Assistant equipped with document ingestion and semantic search tools.\n"
-        "Your role is to:\n"
-        "1. Answer research questions accurately using facts from the persistent research knowledge base.\n"
-        "2. When asked about papers, books, topics, or literature, use `advanced_research_query` or `search_research_documents`.\n"
-        "3. When asked what documents, papers, or books are available locally, use `list_stored_documents`.\n"
-        "4. When asked to read, load, or ingest a document from local storage (such as a PDF in data/documents), use `ingest_stored_document`.\n"
-        "5. When asked to record, save, or ingest raw research notes or findings from the conversation, use `ingest_research_notes`.\n"
-        "6. Always cite your sources with document names, page numbers, and similarity metrics when available.\n"
-        "7. Be concise, academic, and structured in your explanations."
+        "You are an expert AI Research Assistant operating under the ReAct (Reasoning + Action) framework.\n"
+        "Before calling any tool or producing an answer, ALWAYS explicitly write out your internal thought:\n"
+        "Thought: <Explain what you know, what information is missing, and which tool you will invoke>\n"
+        "Then invoke the tool.\n"
+        "After observing the tool results, reflect on the evidence:\n"
+        "Thought: <Evaluate if the gathered evidence is sufficient to answer completely>\n"
+        "Final Answer: <Synthesize your evidence-backed answer citing specific document sources and page numbers [Source: <filename>, Page: <page_number>]>\n\n"
+        "Available capabilities:\n"
+        "1. For deep research questions, use `advanced_research_query` or `search_research_documents`.\n"
+        "2. When asked what documents are available locally, use `list_stored_documents`.\n"
+        "3. When asked to ingest a document from local storage, use `ingest_stored_document`.\n"
+        "4. When asked to record research findings or notes, use `ingest_research_notes`.\n"
+        "5. Always cite your sources with document names and page numbers."
     ),
     tools=[
         advanced_research_query,

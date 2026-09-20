@@ -4,13 +4,11 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from google.adk.events import Event
 from google.adk.runners import InMemoryRunner
-from google.genai import types
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.agents.research_assistant.agent import root_agent
+from app.agents.research_assistant.agent import ReActAgentService, root_agent
 from app.api.dependencies.auth import get_current_active_user
 from app.core.config import settings
 from app.core.logger import get_logger
@@ -107,131 +105,70 @@ class ChainedResearchResponse(BaseModel):
     "/chat",
     response_model=AgentChatResponse,
     status_code=status.HTTP_200_OK,
-    summary="Chat with Google ADK Research Agent",
+    summary="Chat with Research Assistant Agent (ReAct Reasoning Loop)",
 )
-async def chat_with_agent(
+def chat_with_agent(
     payload: AgentChatRequest,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> AgentChatResponse:
-    """Send a prompt to the Google ADK Agent with persistent conversational memory and context windowing.
+    """Send a prompt to the unified ReAct Research Assistant Agent with persistent conversational memory and step tracing.
 
-    Previous turns are persisted to SQLite and context-windowed to provide conversation continuity.
+    Executes the ReAct (Reasoning + Action + Observation) loop, captures thoughts and tool executions,
+    and returns a clean response with full tool_traces.
     """
     session_id = payload.session_id or str(uuid.uuid4())
     user_id = payload.user_id or current_user.username
 
-    # 1. Ensure persistent ChatSession exists in SQLite
-    memory_service.get_or_create_session(
+    user_role_str = (
+        current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
+    )
+    user_profile = UserProfileContext(
+        username=current_user.username,
+        role=user_role_str,
+        expertise_level="expert",
+        target_tone="academic",
+    )
+
+    react_service = ReActAgentService(memory_service=memory_service)
+    final_answer, trace, _ = react_service.run(
+        query=payload.message,
         db=db,
+        user_id=user_id,
         session_id=session_id,
-        user_id=current_user.id,
-        initial_prompt=payload.message,
+        max_iterations=5,
+        user_profile=user_profile,
     )
 
-    # 2. Ensure ADK session exists in the runner
-    try:
-        session = await adk_runner.session_service.get_session(
-            app_name=adk_runner.app_name,
-            user_id=user_id,
-            session_id=session_id,
-        )
-    except Exception:
-        session = None
-
-    if not session:
-        session = await adk_runner.session_service.create_session(
-            app_name=adk_runner.app_name,
-            user_id=user_id,
-            session_id=session_id,
-        )
-
-        # Context Window Restoration:
-        # If this session already existed from a previous server run, preload the windowed history
-        windowed_history = memory_service.get_windowed_history(
-            db=db,
-            session_id=session_id,
-            max_messages=10,
-        )
-        for hist_msg in windowed_history:
-            author_name = root_agent.name if hist_msg.role == "assistant" else user_id
-            role_name = "model" if hist_msg.role == "assistant" else "user"
-            hist_content = types.Content(
-                role=role_name,
-                parts=[types.Part.from_text(text=hist_msg.content)],
-            )
-            event = Event(author=author_name, content=hist_content)
-            await adk_runner.session_service.append_event(session=session, event=event)
-
-    # 3. Save incoming user message to SQLite
-    memory_service.save_message(
-        db=db,
-        session_id=session_id,
-        role="user",
-        content=payload.message,
-    )
-
-    content = types.Content(
-        role="user",
-        parts=[types.Part.from_text(text=payload.message)],
-    )
-
-    text_parts: list[str] = []
+    # Convert ReAct steps into ToolTrace objects for UI visibility
     tool_traces: list[ToolTrace] = []
+    for step in trace.steps:
+        if step.thought:
+            tool_traces.append(
+                ToolTrace(
+                    type="thought",
+                    name=f"Step {step.step_number}",
+                    response=step.thought,
+                )
+            )
+        if step.action:
+            tool_traces.append(
+                ToolTrace(
+                    type="function_call",
+                    name=step.action,
+                    args=step.action_input,
+                    response=step.observation,
+                )
+            )
 
-    try:
-        async for event in adk_runner.run_async(
-            user_id=user_id,
-            session_id=session_id,
-            new_message=content,
-        ):
-            if event.content and event.content.parts:
-                for part in event.content.parts:
-                    if part.text:
-                        text_parts.append(part.text)
-                    if part.function_call:
-                        tool_traces.append(
-                            ToolTrace(
-                                type="function_call",
-                                name=part.function_call.name,
-                                args=part.function_call.args,
-                            )
-                        )
-                    if part.function_response:
-                        tool_traces.append(
-                            ToolTrace(
-                                type="function_response",
-                                name=part.function_response.name,
-                                response=part.function_response.response,
-                            )
-                        )
-
-        final_response = "".join(text_parts).strip()
-
-        # 4. Persist generated assistant response and tool traces into SQLite
-        serialized_traces = [t.model_dump() for t in tool_traces] if tool_traces else None
-        memory_service.save_message(
-            db=db,
-            session_id=session_id,
-            role="assistant",
-            content=final_response,
-            tool_traces=serialized_traces,
-        )
-
-        return AgentChatResponse(
-            response=final_response,
-            session_id=session_id,
-            user_id=user_id,
-            agent_name=root_agent.name,
-            model=settings.gemini_model,
-            tool_traces=tool_traces,
-        )
-    except Exception as exc:
-        logger.exception(f"ADK Agent execution failed: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"ADK Agent execution failed: {str(exc)}",
-        ) from exc
+    return AgentChatResponse(
+        response=final_answer,
+        session_id=session_id,
+        user_id=user_id,
+        agent_name="research_agent",
+        model=settings.gemini_model,
+        tool_traces=tool_traces,
+    )
 
 
 @router.post(
