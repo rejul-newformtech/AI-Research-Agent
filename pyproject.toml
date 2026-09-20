@@ -42,6 +42,8 @@ root = "app.main:app"
 [dependency-groups]
 dev = [
     "pre-commit>=4.6.2",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
     "ruff>=0.16.8",
 ]
 
@@ -62,3 +64,9 @@ ignore = [
     "B008",  # Allow function calls in argument defaults for FastAPI Depends()
     "E501",  # Line length is handled by ruff format
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+python_files = ["test_*.py"]
+asyncio_default_fixture_loop_scope = "function"
