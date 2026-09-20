@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any, Literal
 
 import pypdf.errors
@@ -123,9 +124,9 @@ async def ingest_text_endpoint(payload: TextIngestRequest) -> IngestionResult:
 
         if payload.store_in_chroma and result.chunks:
             vs = ChromaService()
-            vs.add_chunks(result.chunks, collection_name=payload.collection_name)
+            await vs.aadd_chunks(result.chunks, collection_name=payload.collection_name)
             bm25 = BM25Index()
-            bm25.add_documents(result.chunks, persist=True)
+            await asyncio.to_thread(bm25.add_documents, result.chunks, True)
 
         return result
     except ValueError as e:
@@ -210,9 +211,9 @@ async def ingest_pdf_endpoint(
 
         if store_in_chroma and result.chunks:
             vs = ChromaService()
-            vs.add_chunks(result.chunks, collection_name=collection_name)
+            await vs.aadd_chunks(result.chunks, collection_name=collection_name)
             bm25 = BM25Index()
-            bm25.add_documents(result.chunks, persist=True)
+            await asyncio.to_thread(bm25.add_documents, result.chunks, True)
 
         return result
     except pypdf.errors.PdfReadError as e:
@@ -249,21 +250,24 @@ async def search_endpoint(payload: SearchRequest) -> SearchResponse:
             from app.service.advanced_retrieval import HyDEService
 
             hyde_svc = HyDEService(search_svc)
-            _, matches = hyde_svc.search(
+            _, matches = await asyncio.to_thread(
+                hyde_svc.search,
                 query=payload.query,
                 top_k=payload.top_k,
                 where=where_filter,
             )
             mode_used = "hyde"
         elif payload.mode == "sparse":
-            matches = search_svc.sparse_search(
+            matches = await asyncio.to_thread(
+                search_svc.sparse_search,
                 query=payload.query,
                 top_k=payload.top_k,
                 where=where_filter,
             )
             mode_used = "sparse"
         elif payload.mode == "dense":
-            matches = search_svc.dense_search(
+            matches = await asyncio.to_thread(
+                search_svc.dense_search,
                 query=payload.query,
                 top_k=payload.top_k,
                 where=where_filter,

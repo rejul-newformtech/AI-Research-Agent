@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +13,11 @@ DEFAULT_COLLECTION_NAME = settings.chroma_collection_name
 
 
 class ChromaService:
-    """Service wrapping ChromaDB persistent client for document indexing and retrieval."""
+    """Service wrapping ChromaDB persistent client for document indexing and retrieval.
+
+    Provides both synchronous methods and non-blocking asynchronous coroutines
+    (via asyncio.to_thread) to prevent blocking the event loop.
+    """
 
     def __init__(self, persist_directory: str | Path | None = None):
         self.persist_directory = Path(persist_directory or DEFAULT_CHROMA_PATH)
@@ -141,6 +146,73 @@ class ChromaService:
         """Return total document count in the collection."""
         return self.get_collection(collection_name).count()
 
+    # --- Asynchronous non-blocking wrappers ---
 
-# Alias for backward compatibility
+    async def aget_collection(self, name: str | None = None) -> Collection:
+        """Asynchronously get or create a Chroma collection without blocking the event loop."""
+        return await asyncio.to_thread(self.get_collection, name)
+
+    async def aadd_chunks(
+        self,
+        chunks: list[DocumentChunk],
+        collection_name: str = DEFAULT_COLLECTION_NAME,
+    ) -> int:
+        """Asynchronously add document chunks to ChromaDB using a worker thread."""
+        return await asyncio.to_thread(self.add_chunks, chunks, collection_name)
+
+    async def asearch(
+        self,
+        query_embedding: list[float],
+        top_k: int = 5,
+        collection_name: str = DEFAULT_COLLECTION_NAME,
+        where: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Asynchronously perform vector similarity search using a worker thread."""
+        return await asyncio.to_thread(self.search, query_embedding, top_k, collection_name, where)
+
+    async def acount(self, collection_name: str = DEFAULT_COLLECTION_NAME) -> int:
+        """Asynchronously return total document count in the collection."""
+        return await asyncio.to_thread(self.count, collection_name)
+
+
+class AsyncChromaService:
+    """Asynchronous wrapper around ChromaService for purely async/await workflows."""
+
+    def __init__(
+        self,
+        sync_service: ChromaService | None = None,
+        persist_directory: str | Path | None = None,
+    ):
+        self._sync = sync_service or ChromaService(persist_directory=persist_directory)
+
+    async def get_collection(self, name: str | None = None) -> Collection:
+        return await self._sync.aget_collection(name)
+
+    async def add_chunks(
+        self,
+        chunks: list[DocumentChunk],
+        collection_name: str = DEFAULT_COLLECTION_NAME,
+    ) -> int:
+        return await self._sync.aadd_chunks(chunks, collection_name=collection_name)
+
+    async def search(
+        self,
+        query_embedding: list[float],
+        top_k: int = 5,
+        collection_name: str = DEFAULT_COLLECTION_NAME,
+        where: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        return await self._sync.asearch(
+            query_embedding,
+            top_k=top_k,
+            collection_name=collection_name,
+            where=where,
+        )
+
+    async def count(self, collection_name: str = DEFAULT_COLLECTION_NAME) -> int:
+        return await self._sync.acount(collection_name=collection_name)
+
+
+# Aliases for backward compatibility
 VectorStoreService = ChromaService
+AsyncVectorStoreService = AsyncChromaService
