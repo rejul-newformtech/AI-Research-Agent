@@ -114,3 +114,91 @@ async def test_async_agent_research_endpoint(
     data = res.json()
     assert data["answer"] == "Async synthesized answer"
     assert data["structured_synthesis"]["confidence_score"] == 0.9
+
+
+@patch("app.service.react_agent.ReActAgentService.run")
+def test_react_endpoint_success(
+    mock_react_run, client: TestClient, researcher_headers: dict[str, str]
+):
+    from app.schema.agent import ReActExecutionTrace, ReActStep
+
+    mock_react_run.return_value = (
+        "Transistors amplify signals [Source: electronics.pdf, Page 12].",
+        ReActExecutionTrace(
+            steps=[
+                ReActStep(
+                    step_number=1,
+                    thought="Need to search for transistor amplification.",
+                    action="search_research_documents",
+                    action_input={"query": "transistor amplification"},
+                    observation="Found electronics.pdf page 12.",
+                ),
+                ReActStep(
+                    step_number=2,
+                    thought="Sufficient evidence gathered.",
+                    action=None,
+                    action_input=None,
+                    observation=None,
+                ),
+            ],
+            total_iterations=2,
+            is_terminated=True,
+            termination_reason="final_answer_reached",
+        ),
+        None,
+    )
+
+    res = client.post(
+        "/api/v1/agent/react",
+        headers=researcher_headers,
+        json={
+            "query": "How do transistors amplify signals?",
+            "max_iterations": 3,
+        },
+    )
+
+    assert res.status_code == 200
+    data = res.json()
+    assert "electronics.pdf" in data["answer"]
+    assert data["trace"]["total_iterations"] == 2
+    assert len(data["trace"]["steps"]) == 2
+    assert data["trace"]["steps"][0]["action"] == "search_research_documents"
+
+
+@pytest.mark.asyncio
+@patch("app.service.react_agent.ReActAgentService.run")
+async def test_async_react_endpoint(mock_react_run, async_researcher_client: AsyncClient):
+    """Test ReAct endpoint asynchronously with pytest-asyncio fixture."""
+    from app.schema.agent import ReActExecutionTrace, ReActStep
+
+    mock_react_run.return_value = (
+        "Async ReAct answer.",
+        ReActExecutionTrace(
+            steps=[
+                ReActStep(
+                    step_number=1,
+                    thought="Direct answer.",
+                    action=None,
+                    action_input=None,
+                    observation=None,
+                )
+            ],
+            total_iterations=1,
+            is_terminated=True,
+            termination_reason="direct_answer",
+        ),
+        None,
+    )
+
+    res = await async_researcher_client.post(
+        "/api/v1/agent/react",
+        json={
+            "query": "What is quantum computing?",
+            "max_iterations": 3,
+        },
+    )
+
+    assert res.status_code == 200
+    data = res.json()
+    assert data["answer"] == "Async ReAct answer."
+    assert data["trace"]["total_iterations"] == 1

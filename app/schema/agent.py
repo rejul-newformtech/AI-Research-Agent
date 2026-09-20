@@ -70,3 +70,60 @@ class ChainedResearchResponse(BaseModel):
     answer: str
     structured_synthesis: ResearchSynthesisModel | None = None
     total_llm_calls: int = 2
+
+
+class ReActStep(BaseModel):
+    """A single ReAct reasoning and tool invocation step."""
+
+    step_number: int = Field(..., description="1-indexed step number")
+    thought: str = Field(
+        ..., description="Agent reasoning or internal thought before taking action"
+    )
+    action: str | None = Field(
+        default=None, description="Selected tool name, or None if final answer"
+    )
+    action_input: dict[str, Any] | None = Field(
+        default=None, description="Parameters passed to the tool"
+    )
+    observation: str | None = Field(
+        default=None, description="Observation or result returned by the tool"
+    )
+
+
+class ReActExecutionTrace(BaseModel):
+    """Full execution trace of the ReAct reasoning and action cycle."""
+
+    steps: list[ReActStep] = Field(default_factory=list, description="Ordered ReAct steps")
+    total_iterations: int = Field(..., description="Total ReAct iterations executed")
+    is_terminated: bool = Field(..., description="Whether the loop terminated cleanly")
+    termination_reason: str = Field(..., description="Reason for loop termination")
+
+
+class ReActAgentRequest(BaseModel):
+    """Request payload for executing the explicit ReAct agent loop."""
+
+    query: str = Field(..., min_length=1, description="Research question or multi-step problem")
+    session_id: str | None = Field(default=None, description="Optional conversation session ID")
+    max_iterations: int = Field(
+        default=5, ge=1, le=10, description="Max reasoning and action loops allowed"
+    )
+    expertise_level: str = Field(
+        default="expert", description="Audience expertise ('expert', 'intermediate', 'novice')"
+    )
+    target_tone: str = Field(
+        default="academic", description="Response tone ('academic', 'executive', 'didactic')"
+    )
+    custom_instructions: str | None = Field(
+        default=None, description="Optional custom prompt instructions"
+    )
+
+
+class ReActAgentResponse(BaseModel):
+    """Response returned by the explicit ReAct agent loop."""
+
+    answer: str = Field(..., description="Final synthesized evidence-backed answer")
+    session_id: str = Field(..., description="Active conversation session ID")
+    trace: ReActExecutionTrace = Field(..., description="Full reasoning and action trace")
+    structured_synthesis: ResearchSynthesisModel | None = Field(
+        default=None, description="Optional structured synthesis object if generated"
+    )

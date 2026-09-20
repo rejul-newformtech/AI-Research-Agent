@@ -16,6 +16,7 @@ from app.core.config import settings
 from app.core.logger import get_logger
 from app.db.session import get_db
 from app.models import ChatSession, User
+from app.schema.agent import ReActAgentRequest, ReActAgentResponse
 from app.schema.chat import (
     ChatSessionDetailResponse,
     ChatSessionSummaryResponse,
@@ -327,6 +328,49 @@ def run_chained_research(
         answer=result.synthesized_answer,
         structured_synthesis=result.structured_synthesis,
         total_llm_calls=result.total_llm_calls,
+    )
+
+
+@router.post(
+    "/react",
+    response_model=ReActAgentResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Execute multi-step ReAct (Reasoning + Action + Observation) Agent Loop",
+)
+def run_react_agent_loop(
+    payload: ReActAgentRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> ReActAgentResponse:
+    """Execute the iterative ReAct (Reasoning + Action + Observation) loop with transparent step tracing."""
+    from app.service.react_agent import ReActAgentService
+
+    user_role_str = (
+        current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
+    )
+    user_profile = UserProfileContext(
+        username=current_user.username,
+        role=user_role_str,
+        expertise_level=payload.expertise_level,
+        target_tone=payload.target_tone,
+        custom_instructions=payload.custom_instructions,
+    )
+
+    react_service = ReActAgentService(memory_service=memory_service)
+    final_answer, trace, structured = react_service.run(
+        query=payload.query,
+        db=db,
+        user_id=current_user.username,
+        session_id=payload.session_id,
+        max_iterations=payload.max_iterations,
+        user_profile=user_profile,
+    )
+
+    return ReActAgentResponse(
+        answer=final_answer,
+        session_id=payload.session_id or f"react_sess_{abs(hash(payload.query)) % 1000000}",
+        trace=trace,
+        structured_synthesis=structured,
     )
 
 
