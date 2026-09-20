@@ -15,7 +15,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token, hash_password
-from app.db.session import AsyncSessionLocal, Base, engine
+from app.db.base import Base
+from app.db.session import AsyncSessionLocal, engine
 from app.main import app
 from app.models.user import User, UserRole
 from app.service.chunking import DocumentChunk
