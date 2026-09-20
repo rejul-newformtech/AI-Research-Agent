@@ -38,8 +38,8 @@ COPY . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
-# Set permissions for the non-privileged user
-RUN chown -R appuser:appuser /app
+# Ensure storage and log directories exist with ownership for non-privileged user
+RUN mkdir -p /app/data /app/logs && chown -R appuser:appuser /app
 
 # Put the uv virtualenv into PATH
 ENV PATH="/app/.venv/bin:$PATH"
