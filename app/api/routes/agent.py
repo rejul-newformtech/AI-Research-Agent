@@ -343,7 +343,7 @@ def run_react_agent_loop(
     db: Session = Depends(get_db),
 ) -> ReActAgentResponse:
     """Execute the iterative ReAct (Reasoning + Action + Observation) loop with transparent step tracing."""
-    from app.service.react_agent import ReActAgentService
+    from app.agents.research_assistant.agent import ReActAgentService
 
     user_role_str = (
         current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
