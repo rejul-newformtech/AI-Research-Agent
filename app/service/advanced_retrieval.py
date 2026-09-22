@@ -64,7 +64,6 @@ class HyDEService:
             client = genai.Client(api_key=settings.gemini_api_key)
             config = types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=HyDEPassageModel,
             )
             response = client.models.generate_content(
                 model=settings.gemini_model,
@@ -141,7 +140,6 @@ class MultiQueryService:
             client = genai.Client(api_key=settings.gemini_api_key)
             config = types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=MultiQueryExpansionModel,
             )
             response = client.models.generate_content(
                 model=settings.gemini_model,
@@ -352,7 +350,6 @@ class ChainedRAGPipeline:
             client = genai.Client(api_key=settings.gemini_api_key)
             config = types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=ResearchSynthesisModel,
             )
             response = client.models.generate_content(
                 model=settings.gemini_model,

@@ -2,18 +2,11 @@ import re
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from enum import StrEnum
 from typing import Any
 
 import numpy as np
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pydantic import BaseModel, Field
-
-
-class ChunkingStrategy(StrEnum):
-    FIXED = "fixed"
-    SEMANTIC = "semantic"
-    BOTH = "both"
 
 
 class DocumentChunk(BaseModel):
@@ -51,7 +44,6 @@ class BaseChunker(ABC):
     @abstractmethod
     def split_text(self, text: str) -> list[str]:
         """Split text into a list of chunk strings."""
-        pass
 
     def chunk_pages(
         self,

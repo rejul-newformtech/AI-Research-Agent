@@ -29,15 +29,6 @@ def test_well_known_agent_card(client: TestClient):
     assert data["authentication"]["type"] == "bearer"
 
 
-def test_agent_card_namespaced(client: TestClient):
-    """Verify GET /api/v1/agent/card alias returns the same Agent Card."""
-    res = client.get("/api/v1/agent/card")
-    assert res.status_code == 200
-    data = res.json()
-    assert data["name"] == "AI Research Assistant Agent"
-    assert data["version"] == "0.1.0"
-
-
 @patch("app.service.react_agent.ReActAgentService.run")
 def test_a2a_query_react_mode(
     mock_react_run, client: TestClient, researcher_headers: dict[str, str]

@@ -8,12 +8,6 @@ from app.api.dependencies.auth import (
     get_current_active_user,
     require_roles,
 )
-from app.api.schemas.auth import (
-    TokenResponse,
-    UserLoginRequest,
-    UserRegisterRequest,
-    UserResponse,
-)
 from app.core.config import settings
 from app.core.logger import get_logger
 from app.core.security import (
@@ -23,6 +17,12 @@ from app.core.security import (
 )
 from app.db.session import get_db
 from app.models import User, UserRole
+from app.schema.auth import (
+    TokenResponse,
+    UserLoginRequest,
+    UserRegisterRequest,
+    UserResponse,
+)
 
 logger = get_logger("app.api.auth")
 

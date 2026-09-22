@@ -221,7 +221,15 @@ class DynamicPromptBuilder:
             "4. Do not invent or extrapolate unverified facts.\n\n"
             "=== USER RESEARCH INQUIRY ===\n"
             f"{query}\n\n"
-            "Produce a structured JSON response matching the ResearchSynthesisModel schema."
+            "Produce a structured JSON response strictly matching the ResearchSynthesisModel format:\n"
+            "{\n"
+            '  "summary": "Short summary directly answering the inquiry",\n'
+            '  "detailed_findings": "Detailed grounded synthesis with citations",\n'
+            '  "citations": [{"source": "source_doc_name", "page_number": 1, "quote_or_fact": "verbatim fact"}],\n'
+            '  "key_takeaways": ["Takeaway 1", "Takeaway 2"],\n'
+            '  "confidence_score": 0.95,\n'
+            '  "missing_evidence": null\n'
+            "}"
         )
 
         return prompt
@@ -241,7 +249,8 @@ class DynamicPromptBuilder:
             "Write a realistic academic paragraph answering the following research question "
             "as if it were extracted from a peer-reviewed research paper or reference textbook.\n"
             "Do not include conversational filler, meta commentary, or preambles.\n\n"
-            f"Research Question: {query}"
+            f"Research Question: {query}\n\n"
+            'Output a JSON object with key "hypothetical_passage": {"hypothetical_passage": "your passage"}'
         )
 
     def build_multiquery_prompt(
@@ -263,5 +272,6 @@ class DynamicPromptBuilder:
             "You are an expert AI scientific research assistant.\n"
             f"Given the following research question, generate exactly {num_queries} diverse search queries "
             f"{role_directive} to maximize retrieval recall from academic textbooks and research papers.\n\n"
-            f"Question: {query}"
+            f"Question: {query}\n\n"
+            'Output a JSON object with key "queries": {"queries": ["query 1", "query 2", ...]}'
         )

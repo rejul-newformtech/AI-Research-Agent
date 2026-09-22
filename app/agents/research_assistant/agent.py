@@ -385,10 +385,15 @@ class ReActAgentService:
         """Execute the ReAct loop up to max_iterations."""
         session_id = session_id or f"react_sess_{abs(hash(query)) % 1000000}"
 
+        numeric_user_id = (
+            int(user_id)
+            if isinstance(user_id, int) or (isinstance(user_id, str) and user_id.isdigit())
+            else 1
+        )
         await self.memory_service.get_or_create_session(
             db=db,
             session_id=session_id,
-            user_id=1,
+            user_id=numeric_user_id,
             initial_prompt=query,
         )
         await self.memory_service.save_message(

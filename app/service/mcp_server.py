@@ -44,7 +44,7 @@ def search_research_documents(query: str, top_k: int = 5) -> str:
 @mcp.tool(
     name="advanced_research_query",
     description=(
-        "Execute deep research using 2-call chained HyDE (Hypothetical Document Embeddings) "
+        "Execute deep research using 2-call chained HyDE (Hypothetical Document Embeddings)"
         "and Multi-Query expansion with grounded academic synthesis and citations."
     ),
 )

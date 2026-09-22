@@ -44,10 +44,11 @@ def test_chained_research_endpoint(
     )
 
     res = client.post(
-        "/api/v1/agent/research",
+        "/api/v1/agent/chat",
         headers=researcher_headers,
         json={
-            "query": "What is Moore's Law?",
+            "message": "What is Moore's Law?",
+            "mode": "rag",
             "top_k": 3,
             "use_hyde": True,
             "use_multiquery": True,
@@ -59,7 +60,7 @@ def test_chained_research_endpoint(
     assert res.status_code == 200
     data = res.json()
     assert data["total_llm_calls"] == 2
-    assert "electronics.pdf" in data["answer"]
+    assert "electronics.pdf" in data["response"]
     assert len(data["retrieved_chunks"]) == 1
     assert data["session_id"] is not None
     assert data["structured_synthesis"] is not None
@@ -102,9 +103,10 @@ async def test_async_agent_research_endpoint(
     )
 
     res = await async_researcher_client.post(
-        "/api/v1/agent/research",
+        "/api/v1/agent/chat",
         json={
-            "query": "Async query test",
+            "message": "Async query test",
+            "mode": "rag",
             "top_k": 2,
             "use_hyde": False,
             "use_multiquery": False,
@@ -112,7 +114,7 @@ async def test_async_agent_research_endpoint(
     )
     assert res.status_code == 200
     data = res.json()
-    assert data["answer"] == "Async synthesized answer"
+    assert data["response"] == "Async synthesized answer"
     assert data["structured_synthesis"]["confidence_score"] == 0.9
 
 
@@ -149,17 +151,17 @@ def test_react_endpoint_success(
     )
 
     res = client.post(
-        "/api/v1/agent/react",
+        "/api/v1/agent/chat",
         headers=researcher_headers,
         json={
-            "query": "How do transistors amplify signals?",
+            "message": "How do transistors amplify signals?",
             "max_iterations": 3,
         },
     )
 
     assert res.status_code == 200
     data = res.json()
-    assert "electronics.pdf" in data["answer"]
+    assert "electronics.pdf" in data["response"]
     assert data["trace"]["total_iterations"] == 2
     assert len(data["trace"]["steps"]) == 2
     assert data["trace"]["steps"][0]["action"] == "search_research_documents"
@@ -191,16 +193,16 @@ async def test_async_react_endpoint(mock_react_run, async_researcher_client: Asy
     )
 
     res = await async_researcher_client.post(
-        "/api/v1/agent/react",
+        "/api/v1/agent/chat",
         json={
-            "query": "What is quantum computing?",
+            "message": "What is quantum computing?",
             "max_iterations": 3,
         },
     )
 
     assert res.status_code == 200
     data = res.json()
-    assert data["answer"] == "Async ReAct answer."
+    assert data["response"] == "Async ReAct answer."
     assert data["trace"]["total_iterations"] == 1
 
 

@@ -15,10 +15,6 @@ from app.models import ChatSession, User
 from app.schema.agent import (
     AgentChatRequest,
     AgentChatResponse,
-    ChainedResearchRequest,
-    ChainedResearchResponse,
-    ReActAgentRequest,
-    ReActAgentResponse,
     ToolTrace,
 )
 from app.schema.chat import (
@@ -42,17 +38,18 @@ memory_service = ConversationMemoryService(default_window_size=10)
     "/chat",
     response_model=AgentChatResponse,
     status_code=status.HTTP_200_OK,
-    summary="Chat with Research Assistant Agent (ReAct Reasoning Loop)",
+    summary="Chat with Research Assistant Agent (ReAct or Chained RAG)",
 )
 async def chat_with_agent(
     payload: AgentChatRequest,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> AgentChatResponse:
-    """Send a prompt to the unified ReAct Research Assistant Agent with persistent conversational memory and step tracing.
+    """Send a prompt to the unified Research Assistant Agent with persistent conversational memory.
 
-    Executes the ReAct (Reasoning + Action + Observation) loop, captures thoughts and tool executions,
-    and returns a clean response with full tool_traces.
+    Supports two execution modes:
+    - 'react' (default): Iterative ReAct (Reasoning + Action + Observation) loop with tool execution.
+    - 'rag' / 'research': 2-call Chained RAG pipeline (HyDE query expansion + Hybrid RRF + Grounded Synthesis).
     """
     session_id = payload.session_id or str(uuid.uuid4())
     user_id = payload.user_id or current_user.username
@@ -63,17 +60,104 @@ async def chat_with_agent(
     user_profile = UserProfileContext(
         username=current_user.username,
         role=user_role_str,
-        expertise_level="expert",
-        target_tone="academic",
+        expertise_level=payload.expertise_level,
+        target_tone=payload.target_tone,
+        custom_instructions=payload.custom_instructions,
     )
 
+    if payload.mode in ("rag", "research"):
+        from app.service.advanced_retrieval import ChainedRAGPipeline
+
+        # Ensure chat session exists
+        await memory_service.get_or_create_session(
+            db=db,
+            session_id=session_id,
+            user_id=current_user.id,
+            initial_prompt=payload.message,
+        )
+
+        # Fetch recent history window for conversation continuity
+        recent_messages = await memory_service.get_windowed_history(db=db, session_id=session_id)
+        history_context = [
+            {"role": msg.role, "content": msg.content}
+            for msg in recent_messages
+            if msg.role in ("user", "assistant")
+        ]
+
+        pipeline = ChainedRAGPipeline()
+        result = pipeline.run(
+            query=payload.message,
+            top_k=payload.top_k,
+            use_hyde=payload.use_hyde,
+            use_multiquery=payload.use_multiquery,
+            user_profile=user_profile,
+            history=history_context,
+        )
+
+        # Persist conversation turn to conversational memory
+        await memory_service.save_message(
+            db=db,
+            session_id=session_id,
+            role="user",
+            content=payload.message,
+        )
+        await memory_service.save_message(
+            db=db,
+            session_id=session_id,
+            role="assistant",
+            content=result.synthesized_answer,
+            tool_traces=[
+                {
+                    "type": "chained_rag",
+                    "provenance": [
+                        {
+                            "id": c.get("id"),
+                            "source": c.get("metadata", {}).get("source"),
+                            "page_number": c.get("metadata", {}).get("page_number"),
+                            "rrf_score": c.get("rrf_score"),
+                        }
+                        for c in result.retrieved_chunks
+                    ],
+                }
+            ],
+        )
+
+        tool_traces = [
+            ToolTrace(
+                type="chained_rag",
+                name="hybrid_retrieval_and_synthesis",
+                args={
+                    "top_k": payload.top_k,
+                    "use_hyde": payload.use_hyde,
+                    "use_multiquery": payload.use_multiquery,
+                },
+                response=f"Retrieved {len(result.retrieved_chunks)} passages.",
+            )
+        ]
+
+        return AgentChatResponse(
+            response=result.synthesized_answer,
+            session_id=session_id,
+            user_id=user_id,
+            agent_name="research_agent",
+            model=settings.gemini_model,
+            mode=payload.mode,
+            tool_traces=tool_traces,
+            hypothetical_document=result.hypothetical_document,
+            expanded_queries=result.expanded_queries,
+            retrieved_chunks=result.retrieved_chunks,
+            structured_synthesis=result.structured_synthesis,
+            total_llm_calls=result.total_llm_calls,
+        )
+
+    # Default: ReAct loop
     react_service = ReActAgentService(memory_service=memory_service)
-    final_answer, trace, _ = await react_service.run(
+    final_answer, trace, structured = await react_service.run(
         query=payload.message,
         db=db,
         user_id=user_id,
         session_id=session_id,
-        max_iterations=5,
+        max_iterations=payload.max_iterations,
         user_profile=user_profile,
     )
 
@@ -104,145 +188,8 @@ async def chat_with_agent(
         user_id=user_id,
         agent_name="research_agent",
         model=settings.gemini_model,
+        mode="react",
         tool_traces=tool_traces,
-    )
-
-
-@router.post(
-    "/research",
-    response_model=ChainedResearchResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Deep research using 2-call chained HyDE, Multi-Query, and Grounded Synthesis",
-)
-async def chained_research_pipeline(
-    payload: ChainedResearchRequest,
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db),
-) -> ChainedResearchResponse:
-    """Execute a 2-call chained RAG pipeline:
-
-    Call 1: Query expansion (HyDE hypothetical answer + Multi-Query variations).
-    Retrieval: Hybrid RRF search across all query representations.
-    Call 2: Grounded answer synthesis citing document names and page numbers.
-    The conversation turn is automatically recorded into persistent session memory.
-    """
-    from app.service.advanced_retrieval import ChainedRAGPipeline
-
-    session_id = payload.session_id or str(uuid.uuid4())
-
-    # Ensure chat session exists
-    await memory_service.get_or_create_session(
-        db=db,
-        session_id=session_id,
-        user_id=current_user.id,
-        initial_prompt=payload.query,
-    )
-
-    # Construct user profile context dynamically
-    user_profile = UserProfileContext(
-        username=current_user.username,
-        role=current_user.role,
-        expertise_level=payload.expertise_level,
-        target_tone=payload.target_tone,
-        custom_instructions=payload.custom_instructions,
-    )
-
-    # Fetch recent history window for conversation continuity
-    recent_messages = await memory_service.get_windowed_history(db=db, session_id=session_id)
-    history_context = [
-        {"role": msg.role, "content": msg.content}
-        for msg in recent_messages
-        if msg.role in ("user", "assistant")
-    ]
-
-    pipeline = ChainedRAGPipeline()
-    result = pipeline.run(
-        query=payload.query,
-        top_k=payload.top_k,
-        use_hyde=payload.use_hyde,
-        use_multiquery=payload.use_multiquery,
-        user_profile=user_profile,
-        history=history_context,
-    )
-
-    # Persist the conversation turn to conversational memory
-    await memory_service.save_message(
-        db=db,
-        session_id=session_id,
-        role="user",
-        content=payload.query,
-    )
-    await memory_service.save_message(
-        db=db,
-        session_id=session_id,
-        role="assistant",
-        content=result.synthesized_answer,
-        tool_traces=[
-            {
-                "type": "chained_rag",
-                "provenance": [
-                    {
-                        "id": c.get("id"),
-                        "source": c.get("metadata", {}).get("source"),
-                        "page_number": c.get("metadata", {}).get("page_number"),
-                        "rrf_score": c.get("rrf_score"),
-                    }
-                    for c in result.retrieved_chunks
-                ],
-            }
-        ],
-    )
-
-    return ChainedResearchResponse(
-        session_id=session_id,
-        query=payload.query,
-        hypothetical_document=result.hypothetical_document,
-        expanded_queries=result.expanded_queries,
-        retrieved_chunks=result.retrieved_chunks,
-        answer=result.synthesized_answer,
-        structured_synthesis=result.structured_synthesis,
-        total_llm_calls=result.total_llm_calls,
-    )
-
-
-@router.post(
-    "/react",
-    response_model=ReActAgentResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Execute multi-step ReAct (Reasoning + Action + Observation) Agent Loop",
-)
-async def run_react_agent_loop(
-    payload: ReActAgentRequest,
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db),
-) -> ReActAgentResponse:
-    """Execute the iterative ReAct (Reasoning + Action + Observation) loop with transparent step tracing."""
-    from app.agents.research_assistant.agent import ReActAgentService
-
-    user_role_str = (
-        current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
-    )
-    user_profile = UserProfileContext(
-        username=current_user.username,
-        role=user_role_str,
-        expertise_level=payload.expertise_level,
-        target_tone=payload.target_tone,
-        custom_instructions=payload.custom_instructions,
-    )
-
-    react_service = ReActAgentService(memory_service=memory_service)
-    final_answer, trace, structured = await react_service.run(
-        query=payload.query,
-        db=db,
-        user_id=current_user.username,
-        session_id=payload.session_id,
-        max_iterations=payload.max_iterations,
-        user_profile=user_profile,
-    )
-
-    return ReActAgentResponse(
-        answer=final_answer,
-        session_id=payload.session_id or f"react_sess_{abs(hash(payload.query)) % 1000000}",
         trace=trace,
         structured_synthesis=structured,
     )

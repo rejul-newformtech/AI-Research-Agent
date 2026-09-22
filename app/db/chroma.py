@@ -211,8 +211,3 @@ class AsyncChromaService:
 
     async def count(self, collection_name: str = DEFAULT_COLLECTION_NAME) -> int:
         return await self._sync.acount(collection_name=collection_name)
-
-
-# Aliases for backward compatibility
-VectorStoreService = ChromaService
-AsyncVectorStoreService = AsyncChromaService

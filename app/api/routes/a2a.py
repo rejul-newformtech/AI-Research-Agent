@@ -111,16 +111,6 @@ async def get_well_known_agent_card(request: Request) -> AgentCard:
     return build_agent_card(request)
 
 
-@a2a_router.get(
-    "/card",
-    response_model=AgentCard,
-    summary="Agent Card Discovery (API v1)",
-)
-async def get_agent_card(request: Request) -> AgentCard:
-    """Return the standardized Agent Card manifest under the /api/v1/agent namespace."""
-    return build_agent_card(request)
-
-
 @a2a_router.post(
     "/a2a/query",
     response_model=A2AQueryResponse,

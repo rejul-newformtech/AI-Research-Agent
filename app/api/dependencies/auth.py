@@ -9,10 +9,10 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas.auth import TokenPayload
 from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.models import User
+from app.schema.auth import TokenPayload
 
 # Standard HTTP Bearer scheme for Swagger UI and API clients
 http_bearer = HTTPBearer(auto_error=True)

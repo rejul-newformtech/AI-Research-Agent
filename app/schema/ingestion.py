@@ -61,16 +61,6 @@ class SearchRequest(BaseModel):
     )
 
 
-class ChunkMetadataSchema(BaseModel):
-    """Metadata fields attached to document chunks."""
-
-    source: str
-    strategy: str
-    chunk_index: int
-    page_number: int | None = None
-    char_count: int | None = None
-
-
 class ChunkResponseSchema(BaseModel):
     """Individual retrieved document chunk schema."""
 

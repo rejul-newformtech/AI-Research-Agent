@@ -18,4 +18,8 @@ run:
 
 .PHONY: adk
 adk:
-	uv run adk web app/agents --port 8080
+	uv run adk web app/agents --port 8081
+
+.PHONY: eval
+eval:
+	uv run python tests/evaluation/run_eval.py

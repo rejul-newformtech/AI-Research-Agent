@@ -12,7 +12,7 @@ from app.middleware.logging import RequestLoggingMiddleware
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     """Application lifespan context manager for startup and shutdown events."""
     await init_db()
     yield
