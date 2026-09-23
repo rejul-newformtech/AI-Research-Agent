@@ -104,6 +104,8 @@ def get_document_catalog() -> str:
 if __name__ == "__main__":
     import sys
 
+    # 1. HTTP Mode: Only used when explicitly asked for (e.g. Docker Compose network service)
+
     if "--http" in sys.argv or "--streamable-http" in sys.argv:
         port = 8080
         host = "0.0.0.0"
