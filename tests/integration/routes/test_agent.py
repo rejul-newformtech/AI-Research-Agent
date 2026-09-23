@@ -118,7 +118,7 @@ async def test_async_agent_research_endpoint(
     assert data["structured_synthesis"]["confidence_score"] == 0.9
 
 
-@patch("app.service.react_agent.ReActAgentService.run")
+@patch("app.api.routes.agent.ReActAgentService.run")
 def test_react_endpoint_success(
     mock_react_run, client: TestClient, researcher_headers: dict[str, str]
 ):
@@ -168,7 +168,7 @@ def test_react_endpoint_success(
 
 
 @pytest.mark.asyncio
-@patch("app.service.react_agent.ReActAgentService.run")
+@patch("app.api.routes.agent.ReActAgentService.run")
 async def test_async_react_endpoint(mock_react_run, async_researcher_client: AsyncClient):
     """Test ReAct endpoint asynchronously with pytest-asyncio fixture."""
     from app.schema.agent import ReActExecutionTrace, ReActStep
@@ -206,7 +206,7 @@ async def test_async_react_endpoint(mock_react_run, async_researcher_client: Asy
     assert data["trace"]["total_iterations"] == 1
 
 
-@patch("app.service.react_agent.ReActAgentService.run")
+@patch("app.api.routes.agent.ReActAgentService.run")
 def test_chat_endpoint_uses_react_service(
     mock_react_run, client: TestClient, researcher_headers: dict[str, str]
 ):

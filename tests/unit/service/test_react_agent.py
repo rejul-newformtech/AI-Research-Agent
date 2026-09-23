@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.research_assistant.agent import ReActAgentService
 from app.schema.agent import ReActExecutionTrace
-from app.service.react_agent import ReActAgentService
 
 
 def test_react_tool_registry():

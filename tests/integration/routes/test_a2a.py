@@ -29,7 +29,7 @@ def test_well_known_agent_card(client: TestClient):
     assert data["authentication"]["type"] == "bearer"
 
 
-@patch("app.service.react_agent.ReActAgentService.run")
+@patch("app.api.routes.a2a.ReActAgentService.run")
 def test_a2a_query_react_mode(
     mock_react_run, client: TestClient, researcher_headers: dict[str, str]
 ):
@@ -173,7 +173,7 @@ def test_a2a_query_hybrid_search_mode(
 
 
 @pytest.mark.asyncio
-@patch("app.service.react_agent.ReActAgentService.run")
+@patch("app.api.routes.a2a.ReActAgentService.run")
 async def test_async_a2a_query(mock_react_run, async_researcher_client: AsyncClient):
     """Verify A2A query endpoint asynchronously with pytest-asyncio fixture."""
     mock_react_run.return_value = (

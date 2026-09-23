@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.research_assistant.agent import ReActAgentService
 from app.api.dependencies.auth import get_current_active_user
 from app.core.config import settings
 from app.core.logger import get_logger
@@ -18,7 +19,6 @@ from app.schema.a2a import (
     AgentCardToolDeclaration,
 )
 from app.schema.structured_output import UserProfileContext
-from app.service.react_agent import ReActAgentService
 
 logger = get_logger("app.api.a2a")
 
