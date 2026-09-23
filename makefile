@@ -23,3 +23,11 @@ adk:
 .PHONY: eval
 eval:
 	uv run python tests/evaluation/run_eval.py
+
+.PHONY: mcp
+mcp:
+	uv run python -m app.service.mcp_server
+
+.PHONY: mcp-http
+mcp-http:
+	uv run python -m app.service.mcp_server --http

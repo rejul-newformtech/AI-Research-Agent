@@ -102,4 +102,12 @@ def get_document_catalog() -> str:
 
 
 if __name__ == "__main__":
-    mcp.run(show_banner=False)
+    import sys
+
+    if "--http" in sys.argv or "--streamable-http" in sys.argv:
+        port = 8080
+        host = "0.0.0.0"
+        logger.info(f"Starting FastMCP Streamable HTTP server on http://{host}:{port}/mcp")
+        mcp.run(transport="http", host=host, port=port, show_banner=False)
+    else:
+        mcp.run(show_banner=False)

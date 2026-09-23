@@ -11,3 +11,16 @@ services:
       - ./data:/app/data
       - ./logs:/app/logs
     restart: unless-stopped
+
+  mcp:
+    build:
+      context: .
+    command: ["python", "-m", "app.service.mcp_server", "--http"]
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped
