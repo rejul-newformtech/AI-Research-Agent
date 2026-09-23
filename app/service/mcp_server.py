@@ -111,5 +111,7 @@ if __name__ == "__main__":
         host = "0.0.0.0"
         logger.info(f"Starting FastMCP Streamable HTTP server on http://{host}:{port}/mcp")
         mcp.run(transport="http", host=host, port=port, show_banner=False)
+
+    # 2. STDIO Mode: The clean default! Zero HTTP, zero Uvicorn, zero network ports.
     else:
         mcp.run(show_banner=False)
