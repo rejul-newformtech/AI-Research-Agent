@@ -1,9 +1,11 @@
+import logging
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger("app.core.config")
 
 
 class Settings(BaseSettings):
@@ -28,7 +30,7 @@ class Settings(BaseSettings):
         description="Google Gemini API key for embeddings and generation",
     )
     gemini_model: str = Field(
-        default="gemini-3.6-flash",
+        default="gemini-3-flash-preview",
         validation_alias=AliasChoices("GEMINI_MODEL", "gemini_model", "MODEL_NAME"),
         description="Google Gemini LLM generation model",
     )
@@ -51,89 +53,21 @@ class Settings(BaseSettings):
     chroma_collection_name: str = "research_documents"
     log_dir: Path = Path("logs")
 
-    # Database & Authentication Settings (Hot-swappable via URL or individual fields)
-    db_type: str = Field(
-        default="sqlite",
-        validation_alias=AliasChoices("DB_TYPE", "db_type"),
-        description="Database type: 'sqlite', 'postgres', or 'mysql'",
-    )
-    db_user: str | None = Field(
-        default=None,
-        validation_alias=AliasChoices("DB_USER", "db_user", "POSTGRES_USER"),
-        description="Database user",
-    )
-    db_password: str | None = Field(
-        default=None,
-        validation_alias=AliasChoices("DB_PASSWORD", "db_password", "POSTGRES_PASSWORD"),
-        description="Database password",
-    )
-    db_host: str = Field(
-        default="localhost",
-        validation_alias=AliasChoices("DB_HOST", "db_host", "POSTGRES_HOST"),
-        description="Database server host",
-    )
-    db_port: int = Field(
-        default=5432,
-        validation_alias=AliasChoices("DB_PORT", "db_port", "POSTGRES_PORT"),
-        description="Database server port",
-    )
-    db_name: str = Field(
-        default="research_agent",
-        validation_alias=AliasChoices("DB_NAME", "db_name", "POSTGRES_DB"),
-        description="Database name",
-    )
-    database_url: str | None = Field(
-        default=None,
-        validation_alias=AliasChoices("DATABASE_URL", "database_url"),
-        description="Explicit connection URL (takes precedence over individual DB fields if provided)",
-    )
-
-    db_pool_size: int = 5
-    db_max_overflow: int = 10
-    db_pool_timeout: int = 30
-    db_pool_recycle: int = 1800
+    # Database Settings (SQLite)
+    database_url: str = Field(description="SQLite database connection URL")
 
     @property
     def effective_database_url(self) -> str:
-        """Construct the database URL from explicit URL or individual credentials."""
-        if self.database_url:
-            return self.database_url
-        if self.db_type.lower() in ("sqlite", "sqlite3"):
-            filename = self.db_name if self.db_name.endswith(".db") else f"{self.db_name}.db"
-            return f"sqlite:///data/{filename}"
-        user_part = (
-            f"{self.db_user}:{self.db_password}@"
-            if self.db_user and self.db_password
-            else (f"{self.db_user}@" if self.db_user else "")
-        )
-        if self.db_type.lower() in ("postgres", "postgresql"):
-            return f"postgresql+psycopg2://{user_part}{self.db_host}:{self.db_port}/{self.db_name}"
-        if self.db_type.lower() == "mysql":
-            return f"mysql+pymysql://{user_part}{self.db_host}:{self.db_port}/{self.db_name}"
-        return f"sqlite:///data/{self.db_name}.db"
+        """Return the database URL."""
+        return self.database_url
 
     @property
     def effective_async_database_url(self) -> str:
-        """Construct an async-compatible database URL (aiosqlite / asyncpg)."""
-        url = self.effective_database_url
-        if url.startswith("sqlite+aiosqlite://"):
-            return url
-        if url.startswith("sqlite:///"):
-            return url.replace("sqlite:///", "sqlite+aiosqlite:///", 1)
-        if url.startswith("sqlite://"):
-            return url.replace("sqlite://", "sqlite+aiosqlite://", 1)
-        if url.startswith("postgresql+asyncpg://"):
-            return url
-        if url.startswith("postgres://"):
-            return url.replace("postgres://", "postgresql+asyncpg://", 1)
-        if url.startswith("postgresql+psycopg2://"):
-            return url.replace("postgresql+psycopg2://", "postgresql+asyncpg://", 1)
-        if url.startswith("postgresql://"):
-            return url.replace("postgresql://", "postgresql+asyncpg://", 1)
-        return url
+        """Return the configured async database URL directly."""
+        logger.info(f"Effective database URL: {self.database_url}")
+        return self.database_url
 
     jwt_secret_key: str = Field(
-        default="research-agent-secret-key-please-change-in-production",
         validation_alias=AliasChoices("JWT_SECRET_KEY", "jwt_secret_key"),
         description="Secret key used for signing JWT access tokens",
     )
@@ -144,13 +78,6 @@ class Settings(BaseSettings):
     def pdf_storage_dir(self) -> Path:
         """Backward-compatible alias for document_storage_dir."""
         return self.document_storage_dir
-
-    def model_post_init(self, __context: Any) -> None:
-        """Propagate configured settings for third-party SDKs that inspect os.environ."""
-        import os
-
-        if self.gemini_api_key and "GEMINI_API_KEY" not in os.environ:
-            os.environ["GEMINI_API_KEY"] = self.gemini_api_key
 
 
 @lru_cache

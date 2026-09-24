@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.routes.a2a import a2a_router, well_known_router
 from app.api.routes.agent import router as agent_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.ingestion import router as ingestion_router
@@ -28,14 +27,10 @@ app = FastAPI(
 # Register request logging middleware
 app.add_middleware(RequestLoggingMiddleware)
 
-# Root-level discovery routers
-app.include_router(well_known_router)
-
 # Versioned API routers
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(ingestion_router, prefix="/api/v1")
 app.include_router(agent_router, prefix="/api/v1")
-app.include_router(a2a_router, prefix="/api/v1")
 
 
 @app.get("/")
