@@ -1,10 +1,10 @@
-"""Pydantic schemas for authentication, user registration, and token responses."""
+"""Pydantic schemas for authentication, user registration, and token management."""
 
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from app.models import UserRole
+from app.models.user import UserRole
 
 
 class UserRegisterRequest(BaseModel):

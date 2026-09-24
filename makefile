@@ -18,4 +18,20 @@ run:
 
 .PHONY: adk
 adk:
-	uv run adk web app/agents --port 8080
+	uv run adk web app/agents --port 8081
+
+.PHONY: eval
+eval:
+	uv run python tests/evaluation/run_eval.py
+
+.PHONY: mcp
+mcp:
+	uv run python -m app.service.mcp_server
+
+.PHONY: mcp-http
+mcp-http:
+	uv run python -m app.service.mcp_server --http
+
+.PHONY: a2a
+a2a:
+	uv run python -m app.service.a2a_server

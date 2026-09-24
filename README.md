@@ -97,9 +97,7 @@ An enterprise-grade AI Research Assistant built with **FastAPI**, **Google GenAI
 
 ### Research Agent & Conversational Memory (`/api/v1/agent`)
 | Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/v1/agent/research` | Run 2-call Chained RAG pipeline (HyDE + Multi-Query + Grounded Synthesis) |
-| `POST` | `/api/v1/agent/chat` | Chat with the Google ADK root agent |
+| `POST` | `/api/v1/agent/chat` | Unified research agent chat supporting `mode="react"` (autonomous reasoning loop) and `mode="rag"` (2-call Chained RAG with HyDE & Multi-Query) |
 | `GET` | `/api/v1/agent/sessions` | List all conversation sessions for the authenticated user |
 | `GET` | `/api/v1/agent/sessions/{id}` | Get full chronological message history for a session |
 | `DELETE` | `/api/v1/agent/sessions/{id}` | Delete a chat session and all cascading message records |
@@ -187,7 +185,7 @@ uv run pre-commit run --all-files
 - [x] **Stage 001**: Document Ingestion (Fixed + Semantic Chunking) & Persistent Conversational Memory.
 - [x] **Stage 002**: Hybrid Search (`BM25Plus` + ChromaDB) with Reciprocal Rank Fusion (RRF) Re-ranking.
 - [x] **Stage 003**: Advanced Retrieval (HyDE, Multi-Query) and 2-Call Chained RAG Synthesis.
-- [ ] **Stage 004**: Structured Output (Typed Pydantic Models) & Dynamic System Prompting.
-- [ ] **Stage 005**: ReAct Agent Loop (Reasoning + Tool execution cycles).
+- [x] **Stage 004**: Structured Output (Typed Pydantic Models) & Dynamic System Prompting.
+- [x] **Stage 005**: ReAct Agent Loop (Reasoning + Tool execution cycles).
 - [ ] **Stage 006**: MCP Server (3 Tools + 1 Resource) & A2A Server with Agent Card.
 - [ ] **Stage 007**: Evaluation Report & Benchmarks.

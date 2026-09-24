@@ -8,13 +8,18 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "a2a-sdk>=1.1.5",
+    "aiosqlite>=0.20.0",
     "alembic>=1.20.0",
+    "asyncpg>=0.29.0",
     "bcrypt>=5.0.0",
     "chromadb>=1.5.9",
     "fastapi[standard]>=0.141.1",
+    "fastmcp>=4.0.5",
     "google-adk>=2.9.1",
     "google-genai>=2.23.0",
     "langchain-text-splitters>=1.1.2",
+    "mcp>=2.2.0",
     "numpy>=2.5.3",
     "psycopg2-binary>=2.9.13",
     "pydantic>=2.13.5",
@@ -42,6 +47,8 @@ root = "app.main:app"
 [dependency-groups]
 dev = [
     "pre-commit>=4.6.2",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
     "ruff>=0.16.8",
 ]
 
@@ -62,3 +69,9 @@ ignore = [
     "B008",  # Allow function calls in argument defaults for FastAPI Depends()
     "E501",  # Line length is handled by ruff format
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+python_files = ["test_*.py"]
+asyncio_default_fixture_loop_scope = "function"

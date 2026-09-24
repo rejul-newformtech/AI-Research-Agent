@@ -1,87 +1,71 @@
-"""Database session and engine management using SQLAlchemy."""
+"""Database session and engine management using asynchronous SQLAlchemy and SQLite."""
 
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.pool import StaticPool
 
 from app.core.config import settings
 from app.core.logger import get_logger
+from app.db.base import Base
 
 logger = get_logger("app.db.session")
 
 
-class Base(DeclarativeBase):
-    """Base class for all SQLAlchemy ORM models."""
-
-    pass
-
-
-def create_db_engine():
-    """Create and configure a SQLAlchemy engine adapted to the database dialect."""
-    url = settings.effective_database_url
-
-    # Normalize standard postgres URI prefixes if needed
-    if url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql+psycopg2://", 1)
-    elif url.startswith("postgresql://") and not any(
-        driver in url for driver in ("+psycopg", "+asyncpg")
-    ):
-        url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+def create_async_db_engine() -> AsyncEngine:
+    """Create and configure an asynchronous SQLite engine using aiosqlite."""
+    url = settings.effective_async_database_url
 
     kwargs: dict[str, Any] = {
         "echo": settings.debug,
+        "connect_args": {"check_same_thread": False},
     }
 
-    if url.startswith("sqlite"):
-        kwargs["connect_args"] = {"check_same_thread": False}
-        if ":memory:" in url:
-            from sqlalchemy.pool import StaticPool
-
-            kwargs["poolclass"] = StaticPool
-        else:
-            db_path_str = url.replace("sqlite:///", "")
-            if db_path_str:
-                db_path = Path(db_path_str)
-                db_path.parent.mkdir(parents=True, exist_ok=True)
+    if ":memory:" in url:
+        kwargs["poolclass"] = StaticPool
     else:
-        # PostgreSQL / MySQL enterprise connection pooling
-        kwargs.update(
-            {
-                "pool_size": settings.db_pool_size,
-                "max_overflow": settings.db_max_overflow,
-                "pool_timeout": settings.db_pool_timeout,
-                "pool_recycle": settings.db_pool_recycle,
-                "pool_pre_ping": True,
-            }
+        # Extract filesystem path for SQLite to ensure directory exists
+        cleaned_path = (
+            url.split("sqlite+aiosqlite:///")[-1]
+            .split("sqlite+aiosqlite://")[-1]
+            .split("sqlite:///")[-1]
+            .split("sqlite://")[-1]
         )
+        if cleaned_path and not cleaned_path.startswith(":"):
+            db_path = Path(cleaned_path)
+            db_path.parent.mkdir(parents=True, exist_ok=True)
 
-    logger.info(f"Connecting to database backend: {url.split('://')[0]}")
-    return create_engine(url, **kwargs)
+    logger.info("Connecting to SQLite database backend")
+    return create_async_engine(url, **kwargs)
 
 
-engine = create_db_engine()
+engine = create_async_db_engine()
 
-SessionLocal = sessionmaker(
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
     autocommit=False,
     autoflush=False,
-    bind=engine,
 )
 
 
-def get_db() -> Generator[Session, None, None]:
-    """FastAPI dependency that yields an independent database session per request."""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """FastAPI dependency that yields an independent asynchronous database session per request."""
+    async with AsyncSessionLocal() as session:
+        yield session
 
 
-def init_db() -> None:
-    """Initialize database tables for registered SQLAlchemy models."""
-    logger.info("Initializing database tables...")
-    Base.metadata.create_all(bind=engine)
+async def init_db() -> None:
+    """Initialize database tables asynchronously for registered SQLAlchemy models."""
+    logger.info("Initializing database tables asynchronously...")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables initialized successfully.")
