@@ -31,3 +31,7 @@ mcp:
 .PHONY: mcp-http
 mcp-http:
 	uv run python -m app.service.mcp_server --http
+
+.PHONY: a2a
+a2a:
+	uv run python -m app.service.a2a_server

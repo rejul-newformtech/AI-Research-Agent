@@ -102,7 +102,7 @@ def ingest_research_notes(text: str, source_name: str = "agent_notes") -> str:
         return f"Error during ingestion: {str(e)}"
 
 
-def list_stored_documents() -> str:
+def list_stored_documents(*args: Any, **kwargs: Any) -> str:
     """List all research documents (PDFs, text files) available in the local storage directory (data/documents).
 
     Returns:
@@ -362,14 +362,21 @@ class ReActAgentService:
         if action_match:
             action = action_match.group(1).strip()
 
-        input_match = re.search(r"Action Input:\s*(\{.*\}|[^\n]+)", text, re.DOTALL)
+        input_match = re.search(r"Action Input:\s*(\{.*?\}|[^\n]+)", text, re.DOTALL)
         if input_match:
             raw_input = input_match.group(1).strip()
             try:
                 action_input = json.loads(raw_input)
             except json.JSONDecodeError:
-                clean_val = raw_input.strip("\"'")
-                action_input = {"query": clean_val}
+                brace_match = re.search(r"\{.*?\}", raw_input)
+                if brace_match:
+                    try:
+                        action_input = json.loads(brace_match.group(0))
+                    except Exception:
+                        action_input = {"query": raw_input.strip("\"'")}
+                else:
+                    clean_val = raw_input.strip("\"'")
+                    action_input = {"query": clean_val} if clean_val else {}
 
         return thought, action, action_input, None
 
@@ -434,11 +441,32 @@ class ReActAgentService:
                 model=settings.gemini_model,
                 contents=prompt_scratchpad,
             )
-            raw_output = response.text or ""
+
+            # Check if Gemini returned native function_call parts
+            native_action = None
+            native_args = None
+            native_thought = ""
+            candidate = response.candidates[0] if (response and response.candidates) else None
+            if candidate and candidate.content and candidate.content.parts:
+                for part in candidate.content.parts:
+                    if getattr(part, "text", None):
+                        native_thought += part.text
+                    if getattr(part, "function_call", None):
+                        native_action = part.function_call.name
+                        native_args = (
+                            dict(part.function_call.args) if part.function_call.args else {}
+                        )
+
+            raw_output = response.text or native_thought or ""
 
             thought, action, action_input, direct_final_answer = self._parse_model_output(
                 raw_output
             )
+
+            if not action and native_action:
+                action = native_action
+                action_input = native_args or {}
+                thought = thought or native_thought or f"Invoking tool {native_action}"
 
             if direct_final_answer is not None:
                 final_answer = direct_final_answer

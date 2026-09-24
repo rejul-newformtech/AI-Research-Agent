@@ -32,7 +32,12 @@ def create_async_db_engine() -> AsyncEngine:
         kwargs["poolclass"] = StaticPool
     else:
         # Extract filesystem path for SQLite to ensure directory exists
-        cleaned_path = url.split("sqlite+aiosqlite:///")[-1].split("sqlite:///")[-1]
+        cleaned_path = (
+            url.split("sqlite+aiosqlite:///")[-1]
+            .split("sqlite+aiosqlite://")[-1]
+            .split("sqlite:///")[-1]
+            .split("sqlite://")[-1]
+        )
         if cleaned_path and not cleaned_path.startswith(":"):
             db_path = Path(cleaned_path)
             db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -41,11 +46,10 @@ def create_async_db_engine() -> AsyncEngine:
     return create_async_engine(url, **kwargs)
 
 
-async_engine = create_async_db_engine()
-engine = async_engine  # Alias for backward compatibility
+engine = create_async_db_engine()
 
 AsyncSessionLocal = async_sessionmaker(
-    bind=async_engine,
+    bind=engine,
     class_=AsyncSession,
     expire_on_commit=False,
     autocommit=False,
@@ -62,6 +66,6 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def init_db() -> None:
     """Initialize database tables asynchronously for registered SQLAlchemy models."""
     logger.info("Initializing database tables asynchronously...")
-    async with async_engine.begin() as conn:
+    async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables initialized successfully.")
