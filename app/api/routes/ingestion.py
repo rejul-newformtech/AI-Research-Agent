@@ -5,16 +5,16 @@ import pypdf.errors
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field
 
+from app.a2a_core.rag.ingestion import (
+    IngestionResult,
+    IngestionService,
+)
+from app.a2a_core.rag.retrieval import BM25Index, HybridSearchService
 from app.api.dependencies.auth import (
     get_current_active_user,
     require_roles,
 )
 from app.db.chroma import ChromaService
-from app.service.ingestion import (
-    IngestionResult,
-    IngestionService,
-)
-from app.service.retrieval import BM25Index, HybridSearchService
 
 router = APIRouter(prefix="/ingest", tags=["Ingestion"])
 
@@ -247,7 +247,7 @@ async def search_endpoint(payload: SearchRequest) -> SearchResponse:
     try:
         where_filter = None
         if payload.use_hyde:
-            from app.service.advanced_retrieval import HyDEService
+            from app.a2a_core.rag.advanced_retrieval import HyDEService
 
             hyde_svc = HyDEService(search_svc)
             _, matches = await asyncio.to_thread(

@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.service.mcp_server import (
+from app.a2a_core.mcp.server import (
     advanced_research_query,
     get_document_catalog,
     ingest_stored_document,
@@ -27,7 +27,7 @@ async def test_mcp_server_initialization_and_manifest():
     assert "ingest_stored_document" in tool_names
 
 
-@patch("app.service.mcp_server._search_research_documents")
+@patch("app.a2a_core.mcp.server._search_research_documents")
 def test_mcp_tool_search_documents(mock_search):
     """Verify search_research_documents FastMCP tool delegates properly."""
     mock_search.return_value = "Found 2 passages citing paper.pdf."
@@ -37,7 +37,7 @@ def test_mcp_tool_search_documents(mock_search):
     mock_search.assert_called_once_with(query="quantum dots", top_k=3)
 
 
-@patch("app.service.mcp_server._advanced_research_query")
+@patch("app.a2a_core.mcp.server._advanced_research_query")
 def test_mcp_tool_advanced_research_query(mock_advanced):
     """Verify advanced_research_query FastMCP tool executes chained research."""
     mock_advanced.return_value = "Deep synthesized answer with citations."
@@ -47,7 +47,7 @@ def test_mcp_tool_advanced_research_query(mock_advanced):
     mock_advanced.assert_called_once_with(query="neuromorphic computing", top_k=4)
 
 
-@patch("app.service.mcp_server._ingest_stored_document")
+@patch("app.a2a_core.mcp.server._ingest_stored_document")
 def test_mcp_tool_ingest_stored_document(mock_ingest):
     """Verify ingest_stored_document FastMCP tool calls ingestion pipeline."""
     mock_ingest.return_value = "Successfully ingested 'test.pdf': created 5 chunks."

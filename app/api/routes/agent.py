@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.a2a_core.agent.agent import ReActAgentService
-from app.a2a_core.algorithms.advanced_retrieval import ChainedRAGPipeline
+from app.a2a_core.rag.advanced_retrieval import ChainedRAGPipeline
 from app.api.dependencies.auth import get_current_active_user
 from app.core.config import settings
 from app.core.logger import get_logger

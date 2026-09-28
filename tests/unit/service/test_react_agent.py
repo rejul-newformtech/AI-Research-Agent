@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agents.research_assistant.agent import ReActAgentService
+from app.a2a_core.agent.agent import ReActAgentService
 from app.schema.agent import ReActExecutionTrace
 
 

@@ -7,12 +7,12 @@ import pypdf
 from google import genai
 from pydantic import BaseModel, Field
 
-from app.core.config import settings
-from app.service.chunking import (
+from app.a2a_core.rag.chunking import (
     DocumentChunk,
     FixedChunker,
     SemanticChunker,
 )
+from app.core.config import settings
 
 
 class DocumentMetadata(BaseModel):

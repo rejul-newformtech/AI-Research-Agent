@@ -5,8 +5,8 @@ from typing import Any
 import chromadb
 from chromadb.api.models.Collection import Collection
 
+from app.a2a_core.rag.chunking import DocumentChunk
 from app.core.config import settings
-from app.service.chunking import DocumentChunk
 
 DEFAULT_CHROMA_PATH = settings.chroma_persist_dir
 DEFAULT_COLLECTION_NAME = settings.chroma_collection_name

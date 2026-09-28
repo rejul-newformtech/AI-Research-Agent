@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
+from app.a2a_core.rag.chunking import DocumentChunk
 from app.db.chroma import AsyncChromaService, ChromaService
-from app.service.chunking import DocumentChunk
 
 
 def test_chroma_service_sync_flow(tmp_path: Path):

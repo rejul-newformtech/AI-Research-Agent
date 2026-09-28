@@ -68,7 +68,7 @@ class A2ACoreClient:
     ):
         """Delegate Chained RAG pipeline execution to the A2A Core Engine."""
         if pipeline is None:
-            from app.a2a_core.algorithms.advanced_retrieval import ChainedRAGPipeline
+            from app.a2a_core.rag.advanced_retrieval import ChainedRAGPipeline
 
             pipeline = ChainedRAGPipeline()
 
