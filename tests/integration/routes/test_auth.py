@@ -34,7 +34,21 @@ async def test_register_user_success(client: TestClient, db: AsyncSession):
     assert "id" in data
 
 
-def test_register_duplicate_username_fails(client: TestClient):
+@pytest.fixture
+def seeded_watson_user(client: TestClient):
+    """Seed dr_watson_api user if not already registered."""
+    client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "researcher_api@example.com",
+            "username": "dr_watson_api",
+            "password": "Password123!",
+            "role": "researcher",
+        },
+    )
+
+
+def test_register_duplicate_username_fails(client: TestClient, seeded_watson_user):
     payload = {
         "email": "another_api@example.com",
         "username": "dr_watson_api",
@@ -46,7 +60,7 @@ def test_register_duplicate_username_fails(client: TestClient):
     assert "username already exists" in res.json()["detail"]
 
 
-def test_login_json_success(client: TestClient):
+def test_login_json_success(client: TestClient, seeded_watson_user):
     payload = {
         "username": "dr_watson_api",
         "password": "Password123!",
@@ -60,7 +74,7 @@ def test_login_json_success(client: TestClient):
     assert "access_token" in data
 
 
-def test_login_with_email_success(client: TestClient):
+def test_login_with_email_success(client: TestClient, seeded_watson_user):
     payload = {
         "username": "researcher_api@example.com",
         "password": "Password123!",
@@ -70,7 +84,7 @@ def test_login_with_email_success(client: TestClient):
     assert "access_token" in res.json()
 
 
-def test_login_invalid_password_fails(client: TestClient):
+def test_login_invalid_password_fails(client: TestClient, seeded_watson_user):
     payload = {
         "username": "dr_watson_api",
         "password": "WrongPassword!",

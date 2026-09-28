@@ -108,7 +108,12 @@ if __name__ == "__main__":
 
     if "--http" in sys.argv or "--streamable-http" in sys.argv:
         port = 8080
-        host = "0.0.0.0"
+        host = "127.0.0.1"
+        if "--host" in sys.argv:
+            try:
+                host = sys.argv[sys.argv.index("--host") + 1]
+            except (IndexError, ValueError):
+                pass
         logger.info(f"Starting FastMCP Streamable HTTP server on http://{host}:{port}/mcp")
         mcp.run(transport="http", host=host, port=port, show_banner=False)
 

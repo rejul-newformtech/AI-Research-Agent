@@ -8,21 +8,21 @@ services:
       - .env
     volumes:
       # Persist SQLite database, ChromaDB embeddings, and documents
-      - ./data:/app/data
-      - ./logs:/app/logs
+      - app_data:/app/data
+      - app_logs:/app/logs
     restart: unless-stopped
 
   mcp:
     build:
       context: .
-    command: ["python", "-m", "app.service.mcp_server", "--http"]
+    command: ["python", "-m", "app.service.mcp_server", "--http", "--host", "0.0.0.0"]
     ports:
       - "8080:8080"
     env_file:
       - .env
     volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
+      - app_data:/app/data
+      - app_logs:/app/logs
     restart: unless-stopped
 
   a2a:
@@ -34,6 +34,10 @@ services:
     env_file:
       - .env
     volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
+      - app_data:/app/data
+      - app_logs:/app/logs
     restart: unless-stopped
+
+volumes:
+  app_data:
+  app_logs:

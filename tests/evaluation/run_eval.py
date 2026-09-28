@@ -132,8 +132,7 @@ def _normalize(text: str) -> str:
 def score_retrieval(chunks: list[dict[str, Any]], q_spec: dict[str, Any], k: int = 3) -> float:
     """Calculate Precision@k for retrieved chunks."""
     if not q_spec["is_in_corpus"]:
-        # Out-of-corpus query: retrieval precision is 1.0 since corpus genuinely lacks facts
-        return 1.0
+        return 0.0
 
     if not chunks:
         return 0.0

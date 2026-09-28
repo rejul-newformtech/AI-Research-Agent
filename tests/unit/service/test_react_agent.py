@@ -67,6 +67,7 @@ async def test_react_loop_direct_final_answer(mock_client_cls, db: AsyncSession)
     answer, trace, structured = await service.run(
         query="What is Moore's Law?",
         db=db,
+        user_id=1,
         session_id="test_react_direct_sess",
         max_iterations=3,
     )
@@ -113,6 +114,7 @@ async def test_react_loop_multi_step_action_then_answer(mock_client_cls, db: Asy
     answer, trace, structured = await service.run(
         query="What is quantum entanglement?",
         db=db,
+        user_id=1,
         session_id="test_react_multistep_sess",
         max_iterations=3,
     )
@@ -161,6 +163,7 @@ async def test_react_loop_max_iterations_guard(mock_client_cls, db: AsyncSession
     answer, trace, _ = await service.run(
         query="Test query?",
         db=db,
+        user_id=1,
         session_id="test_react_max_iter_sess",
         max_iterations=2,
     )
@@ -168,3 +171,23 @@ async def test_react_loop_max_iterations_guard(mock_client_cls, db: AsyncSession
     assert answer == "Forced summary after reaching max iterations."
     assert trace.total_iterations == 2
     assert trace.termination_reason == "max_iterations_reached"
+
+
+@pytest.mark.asyncio
+async def test_react_invalid_user_id_rejected(db: AsyncSession):
+    service = ReActAgentService()
+    with pytest.raises(ValueError, match="Invalid user_id"):
+        await service.run(
+            query="Test query?",
+            db=db,
+            user_id="invalid_non_numeric",
+            session_id="test_invalid_user_sess",
+        )
+
+    with pytest.raises(ValueError, match="Invalid user_id"):
+        await service.run(
+            query="Test query?",
+            db=db,
+            user_id=-1,
+            session_id="test_invalid_user_sess",
+        )

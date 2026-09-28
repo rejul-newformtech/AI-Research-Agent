@@ -5,6 +5,7 @@ and the explicit ReAct (Reasoning + Action + Observation) execution engine with 
 step-by-step trace observability and safety guardrails.
 """
 
+import asyncio
 import json
 import re
 from collections.abc import Callable
@@ -152,8 +153,13 @@ def ingest_stored_document(filename: str, strategy: str = "fixed") -> str:
         A status message confirming the number of pages processed and chunks indexed into ChromaDB.
     """
     try:
-        doc_dir = settings.document_storage_dir
-        file_path = doc_dir / filename
+        doc_dir = settings.document_storage_dir.resolve()
+        file_path = (doc_dir / filename).resolve()
+        try:
+            file_path.relative_to(doc_dir)
+        except ValueError:
+            return f"Access denied: '{filename}' resolves outside the allowed document directory."
+
         if not file_path.exists():
             matches = [
                 f for f in doc_dir.iterdir() if filename.lower() in f.name.lower() and f.is_file()
@@ -384,7 +390,7 @@ class ReActAgentService:
         self,
         query: str,
         db: AsyncSession,
-        user_id: str = "anonymous",
+        user_id: int | str,
         session_id: str | None = None,
         max_iterations: int = 5,
         user_profile: UserProfileContext | None = None,
@@ -392,11 +398,14 @@ class ReActAgentService:
         """Execute the ReAct loop up to max_iterations."""
         session_id = session_id or f"react_sess_{abs(hash(query)) % 1000000}"
 
-        numeric_user_id = (
-            int(user_id)
-            if isinstance(user_id, int) or (isinstance(user_id, str) and user_id.isdigit())
-            else 1
-        )
+        if isinstance(user_id, int) and user_id > 0:
+            numeric_user_id = user_id
+        elif isinstance(user_id, str) and user_id.isdigit() and int(user_id) > 0:
+            numeric_user_id = int(user_id)
+        else:
+            raise ValueError(
+                f"Invalid user_id '{user_id}'. An authenticated positive integer user ID is required."
+            )
         await self.memory_service.get_or_create_session(
             db=db,
             session_id=session_id,
@@ -437,7 +446,8 @@ class ReActAgentService:
                 f"ReAct Loop [Session {session_id}] - Iteration {iteration}/{max_iterations}"
             )
 
-            response = self.client.models.generate_content(
+            response = await asyncio.to_thread(
+                self.client.models.generate_content,
                 model=settings.gemini_model,
                 contents=prompt_scratchpad,
             )
@@ -484,7 +494,7 @@ class ReActAgentService:
                 break
 
             if action and action_input is not None:
-                observation = self._execute_tool(action, action_input)
+                observation = await asyncio.to_thread(self._execute_tool, action, action_input)
                 steps.append(
                     ReActStep(
                         step_number=iteration,
@@ -525,7 +535,8 @@ class ReActAgentService:
                 f"You have reached the maximum allowed tool iterations. Based on all the observations above, "
                 f"synthesize the final, most accurate answer possible for the user query: '{query}'."
             )
-            synth_resp = self.client.models.generate_content(
+            synth_resp = await asyncio.to_thread(
+                self.client.models.generate_content,
                 model=settings.gemini_model,
                 contents=forced_prompt,
             )

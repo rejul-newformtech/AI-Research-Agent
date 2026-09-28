@@ -1,5 +1,6 @@
 """FastAPI routes for the unified ReAct Research Assistant Agent, conversational memory, and session management."""
 
+import asyncio
 import uuid
 from typing import Any
 
@@ -86,7 +87,8 @@ async def chat_with_agent(
         ]
 
         pipeline = ChainedRAGPipeline()
-        result = pipeline.run(
+        result = await asyncio.to_thread(
+            pipeline.run,
             query=payload.message,
             top_k=payload.top_k,
             use_hyde=payload.use_hyde,
@@ -156,7 +158,7 @@ async def chat_with_agent(
     final_answer, trace, structured = await react_service.run(
         query=payload.message,
         db=db,
-        user_id=user_id,
+        user_id=current_user.id,
         session_id=session_id,
         max_iterations=payload.max_iterations,
         user_profile=user_profile,

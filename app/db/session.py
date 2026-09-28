@@ -25,24 +25,27 @@ def create_async_db_engine() -> AsyncEngine:
 
     kwargs: dict[str, Any] = {
         "echo": settings.debug,
-        "connect_args": {"check_same_thread": False},
     }
 
-    if ":memory:" in url:
-        kwargs["poolclass"] = StaticPool
+    if "sqlite" in url:
+        kwargs["connect_args"] = {"check_same_thread": False}
+        if ":memory:" in url:
+            kwargs["poolclass"] = StaticPool
+        else:
+            # Extract filesystem path for SQLite to ensure directory exists
+            cleaned_path = (
+                url.split("sqlite+aiosqlite:///")[-1]
+                .split("sqlite+aiosqlite://")[-1]
+                .split("sqlite:///")[-1]
+                .split("sqlite://")[-1]
+            )
+            if cleaned_path and not cleaned_path.startswith(":"):
+                db_path = Path(cleaned_path)
+                db_path.parent.mkdir(parents=True, exist_ok=True)
+        logger.info("Connecting to SQLite database backend")
     else:
-        # Extract filesystem path for SQLite to ensure directory exists
-        cleaned_path = (
-            url.split("sqlite+aiosqlite:///")[-1]
-            .split("sqlite+aiosqlite://")[-1]
-            .split("sqlite:///")[-1]
-            .split("sqlite://")[-1]
-        )
-        if cleaned_path and not cleaned_path.startswith(":"):
-            db_path = Path(cleaned_path)
-            db_path.parent.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Connecting to database backend: {url.split('://')[0]}")
 
-    logger.info("Connecting to SQLite database backend")
     return create_async_engine(url, **kwargs)
 
 
