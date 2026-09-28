@@ -8,12 +8,12 @@ from typing import Any
 from google import genai
 from rank_bm25 import BM25Plus
 
-from a2a_server.rag.chunking import DocumentChunk
+from a2a_server.core.chunking import DocumentChunk
 from app.core.config import settings
 from app.core.logger import get_logger
 from app.db.chroma import ChromaService
 
-logger = get_logger("a2a_server.rag.retrieval")
+logger = get_logger("a2a_server.core.retrieval")
 
 
 def tokenize_text(text: str) -> list[str]:

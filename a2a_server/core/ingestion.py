@@ -7,7 +7,7 @@ import pypdf
 from google import genai
 from pydantic import BaseModel, Field
 
-from a2a_server.rag.chunking import (
+from a2a_server.core.chunking import (
     DocumentChunk,
     FixedChunker,
     SemanticChunker,

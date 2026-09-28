@@ -2,12 +2,12 @@
 
 from unittest.mock import MagicMock, patch
 
-from a2a_server.rag.advanced_retrieval import (
+from a2a_server.core.advanced_retrieval import (
     ChainedRAGPipeline,
     HyDEService,
     MultiQueryService,
 )
-from a2a_server.rag.retrieval import HybridSearchService
+from a2a_server.core.retrieval import HybridSearchService
 
 
 @patch("google.genai.Client")

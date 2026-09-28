@@ -6,11 +6,11 @@ import pytest
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
 
-from a2a_server.rag.advanced_retrieval import ChainedRAGResult
+from a2a_server.core.advanced_retrieval import ChainedRAGResult
 from app.schema.structured_output import CitationModel, ResearchSynthesisModel
 
 
-@patch("a2a_server.rag.advanced_retrieval.ChainedRAGPipeline.run")
+@patch("a2a_server.core.advanced_retrieval.ChainedRAGPipeline.run")
 def test_chained_research_endpoint(
     mock_pipeline_run, client: TestClient, researcher_headers: dict[str, str]
 ):
@@ -81,7 +81,7 @@ def test_chained_research_endpoint(
 
 
 @pytest.mark.asyncio
-@patch("a2a_server.rag.advanced_retrieval.ChainedRAGPipeline.run")
+@patch("a2a_server.core.advanced_retrieval.ChainedRAGPipeline.run")
 async def test_async_agent_research_endpoint(
     mock_pipeline_run, async_researcher_client: AsyncClient
 ):

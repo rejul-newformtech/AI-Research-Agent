@@ -15,9 +15,9 @@ from google import genai
 from google.adk.agents import Agent
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from a2a_server.rag.ingestion import IngestionService
-from a2a_server.rag.prompting import DynamicPromptBuilder
-from a2a_server.rag.retrieval import BM25Index, HybridSearchService
+from a2a_server.core.ingestion import IngestionService
+from a2a_server.core.prompting import DynamicPromptBuilder
+from a2a_server.core.retrieval import BM25Index, HybridSearchService
 from app.core.config import settings
 from app.core.logger import get_logger
 from app.db.chroma import ChromaService
@@ -221,7 +221,7 @@ def advanced_research_query(query: str, top_k: int = 5) -> str:
         A grounded academic response citing specific sources and page numbers.
     """
     try:
-        from a2a_server.rag.advanced_retrieval import ChainedRAGPipeline
+        from a2a_server.core.advanced_retrieval import ChainedRAGPipeline
 
         pipeline = ChainedRAGPipeline()
         result = pipeline.run(query=query, top_k=top_k, use_hyde=True, use_multiquery=True)

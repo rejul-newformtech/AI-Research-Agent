@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from a2a_server.rag.chunking import DocumentChunk
+from a2a_server.core.chunking import DocumentChunk
 from app.db.chroma import AsyncChromaService, ChromaService
 
 

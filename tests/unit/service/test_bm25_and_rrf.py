@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from a2a_server.rag.chunking import DocumentChunk
-from a2a_server.rag.retrieval import (
+from a2a_server.core.chunking import DocumentChunk
+from a2a_server.core.retrieval import (
     BM25Index,
     ReciprocalRankFusion,
     tokenize_text,
