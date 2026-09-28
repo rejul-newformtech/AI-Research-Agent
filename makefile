@@ -26,12 +26,12 @@ eval:
 
 .PHONY: mcp
 mcp:
-	uv run python -m app.service.mcp_server
+	uv run python -m app.a2a_core.mcp.server
 
 .PHONY: mcp-http
 mcp-http:
-	uv run python -m app.service.mcp_server --http
+	uv run python -m app.a2a_core.mcp.server --http
 
 .PHONY: a2a
 a2a:
-	uv run python -m app.service.a2a_server
+	uv run python -m app.a2a_core.server

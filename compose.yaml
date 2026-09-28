@@ -15,7 +15,7 @@ services:
   mcp:
     build:
       context: .
-    command: ["python", "-m", "app.service.mcp_server", "--http", "--host", "0.0.0.0"]
+    command: ["python", "-m", "app.a2a_core.mcp.server", "--http", "--host", "0.0.0.0"]
     ports:
       - "8080:8080"
     env_file:
@@ -28,7 +28,7 @@ services:
   a2a:
     build:
       context: .
-    command: ["python", "-m", "app.service.a2a_server"]
+    command: ["python", "-m", "app.a2a_core.server"]
     ports:
       - "8082:8082"
     env_file:
