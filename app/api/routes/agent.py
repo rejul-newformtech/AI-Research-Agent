@@ -11,7 +11,8 @@ from app.api.dependencies.auth import get_current_active_user
 from app.core.config import settings
 from app.core.logger import get_logger
 from app.db.session import get_db
-from app.models import ChatSession, User
+from app.models.chat import ChatSession
+from app.models.user import User
 from app.schema.agent import (
     AgentChatRequest,
     AgentChatResponse,

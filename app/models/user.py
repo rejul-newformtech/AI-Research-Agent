@@ -14,7 +14,6 @@ class UserRole(StrEnum):
 
     ADMIN = "admin"
     RESEARCHER = "researcher"
-    USER = "user"
 
 
 class User(Base):

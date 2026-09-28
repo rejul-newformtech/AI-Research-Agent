@@ -84,7 +84,7 @@ class UserProfileContext(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     username: str = "researcher"
-    role: str = "researcher"  # e.g., 'admin', 'researcher', 'user'
+    role: str = "researcher"  # e.g., 'admin', 'researcher'
     expertise_level: str = "expert"  # 'expert', 'intermediate', 'novice'
     target_tone: str = "academic"  # 'academic', 'executive', 'didactic'
     custom_instructions: str | None = None

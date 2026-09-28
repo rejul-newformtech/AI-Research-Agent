@@ -15,7 +15,7 @@ class UserRegisterRequest(BaseModel):
     password: str = Field(..., min_length=6, description="Password with minimum 6 characters")
     role: UserRole = Field(
         default=UserRole.RESEARCHER,
-        description="Assigned authorization role: 'admin', 'researcher', or 'user'",
+        description="Assigned authorization role: 'admin' or 'researcher'",
     )
 
 

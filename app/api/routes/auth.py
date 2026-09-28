@@ -16,7 +16,7 @@ from app.core.security import (
     verify_password,
 )
 from app.db.session import get_db
-from app.models import User, UserRole
+from app.models.user import User, UserRole
 from app.schema.auth import (
     TokenResponse,
     UserLoginRequest,

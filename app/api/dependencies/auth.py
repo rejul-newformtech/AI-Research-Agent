@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import decode_access_token
 from app.db.session import get_db
-from app.models import User
+from app.models.user import User
 from app.schema.auth import TokenPayload
 
 # Standard HTTP Bearer scheme for Swagger UI and API clients
