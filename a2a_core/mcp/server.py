@@ -9,13 +9,13 @@ from typing import Any
 
 from fastmcp import FastMCP
 
-from app.a2a_core.agent.agent import (
+from a2a_core.agent.agent import (
     advanced_research_query as _advanced_research_query,
 )
-from app.a2a_core.agent.agent import (
+from a2a_core.agent.agent import (
     ingest_stored_document as _ingest_stored_document,
 )
-from app.a2a_core.agent.agent import (
+from a2a_core.agent.agent import (
     search_research_documents as _search_research_documents,
 )
 from app.core.config import settings

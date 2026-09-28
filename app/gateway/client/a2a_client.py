@@ -43,7 +43,7 @@ class A2ACoreClient:
             logger.debug(f"A2A Core Server at {self.base_url} executing via local core engine.")
 
         if react_service is None:
-            from app.a2a_core.agent.agent import ReActAgentService
+            from a2a_core.agent.agent import ReActAgentService
 
             react_service = ReActAgentService()
 
@@ -68,7 +68,7 @@ class A2ACoreClient:
     ):
         """Delegate Chained RAG pipeline execution to the A2A Core Engine."""
         if pipeline is None:
-            from app.a2a_core.rag.advanced_retrieval import ChainedRAGPipeline
+            from a2a_core.rag.advanced_retrieval import ChainedRAGPipeline
 
             pipeline = ChainedRAGPipeline()
 

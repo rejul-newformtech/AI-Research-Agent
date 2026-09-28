@@ -1,6 +1,6 @@
 """Unit tests for DynamicPromptBuilder system prompt generation and domain detection."""
 
-from app.a2a_core.rag.prompting import DynamicPromptBuilder
+from a2a_core.rag.prompting import DynamicPromptBuilder
 from app.schema.structured_output import UserProfileContext
 
 

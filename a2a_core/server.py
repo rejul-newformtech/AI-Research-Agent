@@ -9,7 +9,7 @@ import sys
 import uvicorn
 from google.adk.a2a.utils.agent_to_a2a import to_a2a
 
-from app.a2a_core.agent.agent import root_agent
+from a2a_core.agent.agent import root_agent
 from app.core.logger import get_logger
 
 logger = get_logger("research_agent.a2a_core")

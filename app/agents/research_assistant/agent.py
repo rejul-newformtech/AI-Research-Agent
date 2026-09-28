@@ -1,6 +1,6 @@
-"""ADK research_assistant agent proxy forwarding to app.a2a_core.agent.agent."""
+"""ADK research_assistant agent proxy forwarding to a2a_core.agent.agent."""
 
-from app.a2a_core.agent.agent import (
+from a2a_core.agent.agent import (
     ReActAgentService,
     advanced_research_query,
     ingest_research_notes,
