@@ -14,7 +14,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from a2a_core.rag.chunking import DocumentChunk
+from a2a_server.rag.chunking import DocumentChunk
 from app.core.security import create_access_token, hash_password
 from app.db.base import Base
 from app.db.session import AsyncSessionLocal, engine

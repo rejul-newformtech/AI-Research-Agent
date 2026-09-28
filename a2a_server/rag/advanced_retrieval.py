@@ -10,8 +10,8 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
 
-from a2a_core.rag.prompting import DynamicPromptBuilder
-from a2a_core.rag.retrieval import HybridSearchService
+from a2a_server.rag.prompting import DynamicPromptBuilder
+from a2a_server.rag.retrieval import HybridSearchService
 from app.core.config import settings
 from app.core.logger import get_logger
 from app.schema.structured_output import (
@@ -22,7 +22,7 @@ from app.schema.structured_output import (
     UserProfileContext,
 )
 
-logger = get_logger("a2a_core.rag.advanced_retrieval")
+logger = get_logger("a2a_server.rag.advanced_retrieval")
 
 
 class ChainedRAGResult(BaseModel):

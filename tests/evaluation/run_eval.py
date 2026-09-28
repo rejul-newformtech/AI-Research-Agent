@@ -17,8 +17,8 @@ if str(ROOT_DIR) not in sys.path:
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-from a2a_core.rag.advanced_retrieval import ChainedRAGPipeline  # noqa: E402
-from a2a_core.rag.retrieval import HybridSearchService  # noqa: E402
+from a2a_server.rag.advanced_retrieval import ChainedRAGPipeline  # noqa: E402
+from a2a_server.rag.retrieval import HybridSearchService  # noqa: E402
 
 # The 10 Curated Evaluation Questions
 EVAL_QUESTIONS = [

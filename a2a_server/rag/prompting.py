@@ -11,7 +11,7 @@ from typing import Any
 from app.core.logger import get_logger
 from app.schema.structured_output import UserProfileContext
 
-logger = get_logger("a2a_core.rag.prompting")
+logger = get_logger("a2a_server.rag.prompting")
 
 
 class DynamicPromptBuilder:

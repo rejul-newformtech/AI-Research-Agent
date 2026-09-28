@@ -6,8 +6,8 @@ import pytest
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
 
-from a2a_core.rag.chunking import DocumentChunk
-from a2a_core.rag.retrieval import BM25Index, HybridSearchService
+from a2a_server.rag.chunking import DocumentChunk
+from a2a_server.rag.retrieval import BM25Index, HybridSearchService
 
 
 def test_service_sparse_and_fallback(tmp_path: Path):

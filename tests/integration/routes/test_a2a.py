@@ -2,7 +2,7 @@
 
 from starlette.testclient import TestClient
 
-from a2a_core.server import a2a_app
+from a2a_server.server import a2a_app
 
 
 def test_official_a2a_agent_card():
