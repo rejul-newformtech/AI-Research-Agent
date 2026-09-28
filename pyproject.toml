@@ -41,6 +41,10 @@ build-backend = "uv_build"
 module-root = ""
 module-name = "app"
 
+[tool.pyright]
+include = ["app", "a2a_server", "tests"]
+extraPaths = ["."]
+
 [tool.fastapi-cli]
 root = "app.main:app"
 
