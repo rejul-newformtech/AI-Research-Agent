@@ -1,5 +1,6 @@
 """FastAPI routes for the unified ReAct Research Assistant Agent, conversational memory, and session management."""
 
+import asyncio
 import uuid
 from typing import Any
 
@@ -12,7 +13,6 @@ from app.api.dependencies.auth import get_current_active_user
 from app.core.config import settings
 from app.core.logger import get_logger
 from app.db.session import get_db
-from app.gateway.client.a2a_client import a2a_client
 from app.models.chat import ChatSession
 from app.models.user import User
 from app.schema.agent import (
@@ -86,14 +86,14 @@ async def chat_with_agent(
         ]
 
         pipeline = ChainedRAGPipeline()
-        result = await a2a_client.execute_rag(
+        result = await asyncio.to_thread(
+            pipeline.run,
             query=payload.message,
             top_k=payload.top_k,
             use_hyde=payload.use_hyde,
             use_multiquery=payload.use_multiquery,
             user_profile=user_profile,
             history=history_context,
-            pipeline=pipeline,
         )
 
         # Persist conversation turn to conversational memory
@@ -152,16 +152,15 @@ async def chat_with_agent(
             total_llm_calls=result.total_llm_calls,
         )
 
-    # Default: ReAct loop delegated to A2A Core Engine
+    # Default: ReAct loop execution
     react_service = ReActAgentService(memory_service=memory_service)
-    final_answer, trace, structured = await a2a_client.execute_react(
+    final_answer, trace, structured = await react_service.run(
         query=payload.message,
         db=db,
         user_id=current_user.id,
         session_id=session_id,
         max_iterations=payload.max_iterations,
         user_profile=user_profile,
-        react_service=react_service,
     )
 
     # Convert ReAct steps into ToolTrace objects for UI visibility
