@@ -6,6 +6,10 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      - A2A_SERVER_URL=http://a2a:8082
+    depends_on:
+      - a2a
     volumes:
       # Persist SQLite database, ChromaDB embeddings, and documents
       - app_data:/app/data

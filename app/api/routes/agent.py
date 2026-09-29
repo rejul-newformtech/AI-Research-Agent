@@ -1,14 +1,11 @@
 """FastAPI routes for the unified ReAct Research Assistant Agent, conversational memory, and session management."""
 
-import asyncio
 import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from a2a_server.agent.agent import ReActAgentRunner
-from a2a_server.core.advanced_retrieval import ChainedRAGPipeline
 from app.api.dependencies.auth import get_current_active_user
 from app.core.config import settings
 from app.core.logger import get_logger
@@ -27,6 +24,7 @@ from app.schema.chat import (
 from app.schema.structured_output import (
     UserProfileContext,
 )
+from app.service.a2a_client import A2AServerClient, get_a2a_client
 from app.service.memory import ConversationMemoryService
 
 logger = get_logger("app.api.agent")
@@ -47,9 +45,11 @@ async def chat_with_agent(
     payload: AgentChatRequest,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
+    a2a_client: A2AServerClient = Depends(get_a2a_client),
 ) -> AgentChatResponse:
     """Send a prompt to the unified Research Assistant Agent with persistent conversational memory.
 
+    Dispatches remote network execution to the standalone A2A Intelligence microservice.
     Supports two execution modes:
     - 'react' (default): Iterative ReAct (Reasoning + Action + Observation) loop with tool execution.
     - 'rag' / 'research': 2-call Chained RAG pipeline (HyDE query expansion + Hybrid RRF + Grounded Synthesis).
@@ -68,26 +68,33 @@ async def chat_with_agent(
         custom_instructions=payload.custom_instructions,
     )
 
+    # 1. Ensure chat session exists in SQLite
+    await memory_service.get_or_create_session(
+        db=db,
+        session_id=session_id,
+        user_id=current_user.id,
+        initial_prompt=payload.message,
+    )
+
+    # 2. Fetch recent history window for conversation continuity
+    recent_messages = await memory_service.get_windowed_history(db=db, session_id=session_id)
+    history_context = [
+        {"role": msg.role, "content": msg.content}
+        for msg in recent_messages
+        if msg.role in ("user", "assistant")
+    ]
+
+    # 3. Persist incoming user turn to conversational memory
+    await memory_service.save_message(
+        db=db,
+        session_id=session_id,
+        role="user",
+        content=payload.message,
+    )
+
+    # 4. Remote invocation of A2A Intelligence Microservice over HTTP
     if payload.mode in ("rag", "research"):
-        # Ensure chat session exists
-        await memory_service.get_or_create_session(
-            db=db,
-            session_id=session_id,
-            user_id=current_user.id,
-            initial_prompt=payload.message,
-        )
-
-        # Fetch recent history window for conversation continuity
-        recent_messages = await memory_service.get_windowed_history(db=db, session_id=session_id)
-        history_context = [
-            {"role": msg.role, "content": msg.content}
-            for msg in recent_messages
-            if msg.role in ("user", "assistant")
-        ]
-
-        pipeline = ChainedRAGPipeline()
-        result = await asyncio.to_thread(
-            pipeline.run,
+        remote_data = await a2a_client.run_query(
             query=payload.message,
             top_k=payload.top_k,
             use_hyde=payload.use_hyde,
@@ -96,32 +103,29 @@ async def chat_with_agent(
             history=history_context,
         )
 
-        # Persist conversation turn to conversational memory
-        await memory_service.save_message(
-            db=db,
-            session_id=session_id,
-            role="user",
-            content=payload.message,
-        )
+        synthesized_answer = remote_data.get("synthesized_answer", "")
+        retrieved_chunks = remote_data.get("retrieved_chunks", [])
+        tool_traces_raw = [
+            {
+                "type": "chained_rag",
+                "provenance": [
+                    {
+                        "id": c.get("id"),
+                        "source": c.get("metadata", {}).get("source"),
+                        "page_number": c.get("metadata", {}).get("page_number"),
+                        "rrf_score": c.get("rrf_score"),
+                    }
+                    for c in retrieved_chunks
+                ],
+            }
+        ]
+
         await memory_service.save_message(
             db=db,
             session_id=session_id,
             role="assistant",
-            content=result.synthesized_answer,
-            tool_traces=[
-                {
-                    "type": "chained_rag",
-                    "provenance": [
-                        {
-                            "id": c.get("id"),
-                            "source": c.get("metadata", {}).get("source"),
-                            "page_number": c.get("metadata", {}).get("page_number"),
-                            "rrf_score": c.get("rrf_score"),
-                        }
-                        for c in result.retrieved_chunks
-                    ],
-                }
-            ],
+            content=synthesized_answer,
+            tool_traces=tool_traces_raw,
         )
 
         tool_traces = [
@@ -133,56 +137,46 @@ async def chat_with_agent(
                     "use_hyde": payload.use_hyde,
                     "use_multiquery": payload.use_multiquery,
                 },
-                response=f"Retrieved {len(result.retrieved_chunks)} passages.",
+                response=f"Retrieved {len(retrieved_chunks)} passages.",
             )
         ]
 
         return AgentChatResponse(
-            response=result.synthesized_answer,
+            response=synthesized_answer,
             session_id=session_id,
             user_id=user_id,
             agent_name="research_agent",
             model=settings.gemini_model,
             mode=payload.mode,
             tool_traces=tool_traces,
-            hypothetical_document=result.hypothetical_document,
-            expanded_queries=result.expanded_queries,
-            retrieved_chunks=result.retrieved_chunks,
-            structured_synthesis=result.structured_synthesis,
-            total_llm_calls=result.total_llm_calls,
+            hypothetical_document=remote_data.get("hypothetical_document"),
+            expanded_queries=remote_data.get("expanded_queries", []),
+            retrieved_chunks=retrieved_chunks,
+            structured_synthesis=remote_data.get("structured_synthesis"),
+            total_llm_calls=remote_data.get("total_llm_calls", 2),
         )
 
-    # Default: ReAct loop execution
-    react_runner = ReActAgentRunner(memory_service=memory_service)
-    final_answer, trace, structured = await react_runner.run(
-        query=payload.message,
-        db=db,
-        user_id=current_user.id,
+    # Default: Remote ReAct agent loop execution
+    remote_data = await a2a_client.run_chat(
+        message=payload.message,
         session_id=session_id,
         max_iterations=payload.max_iterations,
         user_profile=user_profile,
+        history=history_context,
     )
 
-    # Convert ReAct steps into ToolTrace objects for UI visibility
-    tool_traces: list[ToolTrace] = []
-    for step in trace.steps:
-        if step.thought:
-            tool_traces.append(
-                ToolTrace(
-                    type="thought",
-                    name=f"Step {step.step_number}",
-                    response=step.thought,
-                )
-            )
-        if step.action:
-            tool_traces.append(
-                ToolTrace(
-                    type="function_call",
-                    name=step.action,
-                    args=step.action_input,
-                    response=step.observation,
-                )
-            )
+    final_answer = remote_data.get("response", "")
+    tool_traces_raw = remote_data.get("tool_traces", [])
+
+    await memory_service.save_message(
+        db=db,
+        session_id=session_id,
+        role="assistant",
+        content=final_answer,
+        tool_traces=tool_traces_raw,
+    )
+
+    tool_traces = [ToolTrace(**t) for t in tool_traces_raw]
 
     return AgentChatResponse(
         response=final_answer,
@@ -192,8 +186,8 @@ async def chat_with_agent(
         model=settings.gemini_model,
         mode="react",
         tool_traces=tool_traces,
-        trace=trace,
-        structured_synthesis=structured,
+        trace=remote_data.get("trace"),
+        structured_synthesis=remote_data.get("structured_synthesis"),
     )
 
 
@@ -263,23 +257,17 @@ async def delete_chat_session(
     "/info",
     summary="Retrieve Agent Details",
 )
-async def get_agent_info() -> dict[str, Any]:
+async def get_agent_info(
+    a2a_client: A2AServerClient = Depends(get_a2a_client),
+) -> dict[str, Any]:
     """Return metadata about the unified ReAct Research Assistant agent and its configured tools."""
-    agent_runner = ReActAgentRunner()
-    tool_names = list(agent_runner.tool_registry.keys())
-    tools_manifest = [
-        {
-            "name": name,
-            "description": (getattr(func, "__doc__", "") or "").split("\n\n")[0].strip(),
+    try:
+        return await a2a_client.get_info()
+    except Exception as e:
+        logger.warning(f"Failed to fetch remote agent info: {e}")
+        return {
+            "name": "research_agent",
+            "framework": "ReAct (Reasoning + Action + Observation)",
+            "model": settings.gemini_model,
+            "status": "remote_pending",
         }
-        for name, func in agent_runner.tool_registry.items()
-    ]
-    return {
-        "name": "research_agent",
-        "framework": "ReAct (Reasoning + Action + Observation)",
-        "model": settings.gemini_model,
-        "embedding_model": settings.embedding_model,
-        "tools": tool_names,
-        "tools_manifest": tools_manifest,
-        "instruction": "ReAct framework with iterative Thought, Action, and Observation reasoning loop.",
-    }

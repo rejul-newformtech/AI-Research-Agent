@@ -74,6 +74,13 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
+    # A2A Microservice Settings
+    a2a_server_url: str = Field(
+        default="http://localhost:8082",
+        validation_alias=AliasChoices("A2A_SERVER_URL", "a2a_server_url"),
+        description="Base URL of the standalone A2A Intelligence server microservice",
+    )
+
     @property
     def pdf_storage_dir(self) -> Path:
         """Backward-compatible alias for document_storage_dir."""

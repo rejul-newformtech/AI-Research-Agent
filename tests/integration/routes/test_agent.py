@@ -1,4 +1,4 @@
-"""Integration tests for the /api/v1/agent/research endpoint and structured response."""
+"""Integration tests for the /api/v1/agent/chat endpoint and remote A2A microservice communication."""
 
 from unittest.mock import patch
 
@@ -6,19 +6,16 @@ import pytest
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
 
-from a2a_server.core.advanced_retrieval import ChainedRAGResult
-from app.schema.structured_output import CitationModel, ResearchSynthesisModel
 
-
-@patch("a2a_server.core.advanced_retrieval.ChainedRAGPipeline.run")
+@patch("app.service.a2a_client.A2AServerClient.run_query")
 def test_chained_research_endpoint(
-    mock_pipeline_run, client: TestClient, researcher_headers: dict[str, str]
+    mock_run_query, client: TestClient, researcher_headers: dict[str, str]
 ):
-    mock_pipeline_run.return_value = ChainedRAGResult(
-        query="What is Moore's Law?",
-        hypothetical_document="Moore's Law is an empirical observation.",
-        expanded_queries=["semiconductor scaling", "transistor count density"],
-        retrieved_chunks=[
+    mock_run_query.return_value = {
+        "query": "What is Moore's Law?",
+        "hypothetical_document": "Moore's Law is an empirical observation.",
+        "expanded_queries": ["semiconductor scaling", "transistor count density"],
+        "retrieved_chunks": [
             {
                 "id": "chunk_moore",
                 "text": "Moore's Law states that transistor density doubles every 2 years.",
@@ -26,22 +23,23 @@ def test_chained_research_endpoint(
                 "rrf_score": 0.033,
             }
         ],
-        synthesized_answer="Moore's Law predicts transistor doubling [Source: electronics.pdf, Page 4].",
-        structured_synthesis=ResearchSynthesisModel(
-            summary="Moore's Law predicts exponential growth in transistor density.",
-            detailed_findings="Transistor count doubles roughly every two years.",
-            citations=[
-                CitationModel(
-                    source="electronics.pdf",
-                    page_number=4,
-                    quote_or_fact="Transistor density doubles every 2 years.",
-                )
+        "synthesized_answer": "Moore's Law predicts transistor doubling [Source: electronics.pdf, Page 4].",
+        "structured_synthesis": {
+            "summary": "Moore's Law predicts exponential growth in transistor density.",
+            "detailed_findings": "Transistor count doubles roughly every two years.",
+            "citations": [
+                {
+                    "source": "electronics.pdf",
+                    "page_number": 4,
+                    "quote_or_fact": "Transistor density doubles every 2 years.",
+                }
             ],
-            key_takeaways=["Exponential compute growth", "Fabrication cost economics"],
-            confidence_score=0.95,
-        ),
-        total_llm_calls=2,
-    )
+            "key_takeaways": ["Exponential compute growth", "Fabrication cost economics"],
+            "confidence_score": 0.95,
+            "missing_evidence": None,
+        },
+        "total_llm_calls": 2,
+    }
 
     res = client.post(
         "/api/v1/agent/chat",
@@ -67,7 +65,7 @@ def test_chained_research_endpoint(
     assert data["structured_synthesis"]["confidence_score"] == 0.95
     assert len(data["structured_synthesis"]["citations"]) == 1
 
-    # Verify conversational memory recorded this turn
+    # Verify conversational memory recorded this turn in SQLite
     session_id = data["session_id"]
     sess_res = client.get(
         f"/api/v1/agent/sessions/{session_id}",
@@ -81,26 +79,25 @@ def test_chained_research_endpoint(
 
 
 @pytest.mark.asyncio
-@patch("a2a_server.core.advanced_retrieval.ChainedRAGPipeline.run")
-async def test_async_agent_research_endpoint(
-    mock_pipeline_run, async_researcher_client: AsyncClient
-):
+@patch("app.service.a2a_client.A2AServerClient.run_query")
+async def test_async_agent_research_endpoint(mock_run_query, async_researcher_client: AsyncClient):
     """Test agent research endpoint asynchronously with pytest-asyncio fixture."""
-    mock_pipeline_run.return_value = ChainedRAGResult(
-        query="Async query test",
-        hypothetical_document="Hypothetical doc",
-        expanded_queries=["q1", "q2"],
-        retrieved_chunks=[],
-        synthesized_answer="Async synthesized answer",
-        structured_synthesis=ResearchSynthesisModel(
-            summary="Async summary",
-            detailed_findings="Async findings",
-            citations=[],
-            key_takeaways=["Key takeaway"],
-            confidence_score=0.9,
-        ),
-        total_llm_calls=2,
-    )
+    mock_run_query.return_value = {
+        "query": "Async query test",
+        "hypothetical_document": "Hypothetical doc",
+        "expanded_queries": ["q1", "q2"],
+        "retrieved_chunks": [],
+        "synthesized_answer": "Async synthesized answer",
+        "structured_synthesis": {
+            "summary": "Async summary",
+            "detailed_findings": "Async findings",
+            "citations": [],
+            "key_takeaways": ["Key takeaway"],
+            "confidence_score": 0.9,
+            "missing_evidence": None,
+        },
+        "total_llm_calls": 2,
+    }
 
     res = await async_researcher_client.post(
         "/api/v1/agent/chat",
@@ -118,37 +115,50 @@ async def test_async_agent_research_endpoint(
     assert data["structured_synthesis"]["confidence_score"] == 0.9
 
 
-@patch("app.api.routes.agent.ReActAgentService.run")
+@patch("app.service.a2a_client.A2AServerClient.run_chat")
 def test_react_endpoint_success(
-    mock_react_run, client: TestClient, researcher_headers: dict[str, str]
+    mock_run_chat, client: TestClient, researcher_headers: dict[str, str]
 ):
-    from app.schema.agent import ReActExecutionTrace, ReActStep
-
-    mock_react_run.return_value = (
-        "Transistors amplify signals [Source: electronics.pdf, Page 12].",
-        ReActExecutionTrace(
-            steps=[
-                ReActStep(
-                    step_number=1,
-                    thought="Need to search for transistor amplification.",
-                    action="search_research_documents",
-                    action_input={"query": "transistor amplification"},
-                    observation="Found electronics.pdf page 12.",
-                ),
-                ReActStep(
-                    step_number=2,
-                    thought="Sufficient evidence gathered.",
-                    action=None,
-                    action_input=None,
-                    observation=None,
-                ),
+    mock_run_chat.return_value = {
+        "response": "Transistors amplify signals [Source: electronics.pdf, Page 12].",
+        "session_id": "test_sess_1",
+        "tool_traces": [
+            {
+                "type": "thought",
+                "name": "Step 1",
+                "args": None,
+                "response": "Need to search for transistor amplification.",
+            },
+            {
+                "type": "function_call",
+                "name": "search_research_documents",
+                "args": {"query": "transistor amplification"},
+                "response": "Found electronics.pdf page 12.",
+            },
+        ],
+        "trace": {
+            "steps": [
+                {
+                    "step_number": 1,
+                    "thought": "Need to search for transistor amplification.",
+                    "action": "search_research_documents",
+                    "action_input": {"query": "transistor amplification"},
+                    "observation": "Found electronics.pdf page 12.",
+                },
+                {
+                    "step_number": 2,
+                    "thought": "Sufficient evidence gathered.",
+                    "action": None,
+                    "action_input": None,
+                    "observation": None,
+                },
             ],
-            total_iterations=2,
-            is_terminated=True,
-            termination_reason="final_answer_reached",
-        ),
-        None,
-    )
+            "total_iterations": 2,
+            "is_terminated": True,
+            "termination_reason": "final_answer_reached",
+        },
+        "structured_synthesis": None,
+    }
 
     res = client.post(
         "/api/v1/agent/chat",
@@ -168,29 +178,29 @@ def test_react_endpoint_success(
 
 
 @pytest.mark.asyncio
-@patch("app.api.routes.agent.ReActAgentService.run")
-async def test_async_react_endpoint(mock_react_run, async_researcher_client: AsyncClient):
+@patch("app.service.a2a_client.A2AServerClient.run_chat")
+async def test_async_react_endpoint(mock_run_chat, async_researcher_client: AsyncClient):
     """Test ReAct endpoint asynchronously with pytest-asyncio fixture."""
-    from app.schema.agent import ReActExecutionTrace, ReActStep
-
-    mock_react_run.return_value = (
-        "Async ReAct answer.",
-        ReActExecutionTrace(
-            steps=[
-                ReActStep(
-                    step_number=1,
-                    thought="Direct answer.",
-                    action=None,
-                    action_input=None,
-                    observation=None,
-                )
+    mock_run_chat.return_value = {
+        "response": "Async ReAct answer.",
+        "session_id": "sess_async",
+        "tool_traces": [],
+        "trace": {
+            "steps": [
+                {
+                    "step_number": 1,
+                    "thought": "Direct answer.",
+                    "action": None,
+                    "action_input": None,
+                    "observation": None,
+                }
             ],
-            total_iterations=1,
-            is_terminated=True,
-            termination_reason="direct_answer",
-        ),
-        None,
-    )
+            "total_iterations": 1,
+            "is_terminated": True,
+            "termination_reason": "direct_answer",
+        },
+        "structured_synthesis": None,
+    }
 
     res = await async_researcher_client.post(
         "/api/v1/agent/chat",
@@ -206,38 +216,42 @@ async def test_async_react_endpoint(mock_react_run, async_researcher_client: Asy
     assert data["trace"]["total_iterations"] == 1
 
 
-@patch("app.api.routes.agent.ReActAgentService.run")
+@patch("app.service.a2a_client.A2AServerClient.run_chat")
 def test_chat_endpoint_uses_react_service(
-    mock_react_run, client: TestClient, researcher_headers: dict[str, str]
+    mock_run_chat, client: TestClient, researcher_headers: dict[str, str]
 ):
-    """Verify that POST /api/v1/agent/chat runs the ReAct thinking engine and exposes thoughts in tool_traces."""
-    from app.schema.agent import ReActExecutionTrace, ReActStep
-
-    mock_react_run.return_value = (
-        "ReAct reasoned answer [Source: paper.pdf, Page 1].",
-        ReActExecutionTrace(
-            steps=[
-                ReActStep(
-                    step_number=1,
-                    thought="Need to check literature for photonics.",
-                    action="search_research_documents",
-                    action_input={"query": "photonics"},
-                    observation="Found paper.pdf page 1.",
-                ),
-                ReActStep(
-                    step_number=2,
-                    thought="Sufficient evidence found to formulate answer.",
-                    action=None,
-                    action_input=None,
-                    observation=None,
-                ),
-            ],
-            total_iterations=2,
-            is_terminated=True,
-            termination_reason="final_answer_reached",
-        ),
-        None,
-    )
+    """Verify that POST /api/v1/agent/chat runs remote ReAct thinking and exposes thoughts in tool_traces."""
+    mock_run_chat.return_value = {
+        "response": "ReAct reasoned answer [Source: paper.pdf, Page 1].",
+        "session_id": "sess_thought",
+        "tool_traces": [
+            {
+                "type": "thought",
+                "name": "Step 1",
+                "args": None,
+                "response": "Need to check literature for photonics.",
+            },
+            {
+                "type": "function_call",
+                "name": "search_research_documents",
+                "args": {"query": "photonics"},
+                "response": "Found paper.pdf page 1.",
+            },
+            {
+                "type": "thought",
+                "name": "Step 2",
+                "args": None,
+                "response": "Sufficient evidence found to formulate answer.",
+            },
+        ],
+        "trace": {
+            "steps": [],
+            "total_iterations": 2,
+            "is_terminated": True,
+            "termination_reason": "final_answer_reached",
+        },
+        "structured_synthesis": None,
+    }
 
     res = client.post(
         "/api/v1/agent/chat",
@@ -263,8 +277,23 @@ def test_chat_endpoint_uses_react_service(
     assert data["tool_traces"][2]["response"] == "Sufficient evidence found to formulate answer."
 
 
-def test_agent_info_endpoint(client: TestClient):
-    """Verify GET /api/v1/agent/info reports the unified ReAct agent and all 5 research tools."""
+@patch("app.service.a2a_client.A2AServerClient.get_info")
+def test_agent_info_endpoint(mock_get_info, client: TestClient):
+    """Verify GET /api/v1/agent/info reports remote ReAct agent metadata and all 5 research tools."""
+    mock_get_info.return_value = {
+        "name": "research_agent",
+        "framework": "ReAct (Reasoning + Action + Observation)",
+        "model": "gemini-3-flash-preview",
+        "tools": [
+            "search_research_documents",
+            "advanced_research_query",
+            "list_stored_documents",
+            "ingest_stored_document",
+            "ingest_research_notes",
+        ],
+        "tools_manifest": [],
+    }
+
     res = client.get("/api/v1/agent/info")
     assert res.status_code == 200
     data = res.json()

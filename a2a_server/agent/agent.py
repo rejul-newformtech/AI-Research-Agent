@@ -389,35 +389,40 @@ class ReActAgentRunner:
     async def run(
         self,
         query: str,
-        db: AsyncSession,
-        user_id: int | str,
+        db: AsyncSession | None = None,
+        user_id: int | str | None = None,
         session_id: str | None = None,
         max_iterations: int = 5,
         user_profile: UserProfileContext | None = None,
+        history: list[dict[str, str]] | None = None,
     ) -> tuple[str, ReActExecutionTrace, ResearchSynthesisModel | None]:
-        """Execute the ReAct loop up to max_iterations."""
+        """Execute the ReAct loop up to max_iterations.
+
+        Supports both stateful database-backed execution and stateless execution with pre-supplied history.
+        """
         session_id = session_id or f"react_sess_{abs(hash(query)) % 1000000}"
 
-        if isinstance(user_id, int) and user_id > 0:
-            numeric_user_id = user_id
-        elif isinstance(user_id, str) and user_id.isdigit() and int(user_id) > 0:
-            numeric_user_id = int(user_id)
-        else:
-            raise ValueError(
-                f"Invalid user_id '{user_id}'. An authenticated positive integer user ID is required."
+        if db is not None and user_id is not None:
+            if isinstance(user_id, int) and user_id > 0:
+                numeric_user_id = user_id
+            elif isinstance(user_id, str) and user_id.isdigit() and int(user_id) > 0:
+                numeric_user_id = int(user_id)
+            else:
+                raise ValueError(
+                    f"Invalid user_id '{user_id}'. An authenticated positive integer user ID is required."
+                )
+            await self.memory_service.get_or_create_session(
+                db=db,
+                session_id=session_id,
+                user_id=numeric_user_id,
+                initial_prompt=query,
             )
-        await self.memory_service.get_or_create_session(
-            db=db,
-            session_id=session_id,
-            user_id=numeric_user_id,
-            initial_prompt=query,
-        )
-        await self.memory_service.save_message(
-            db=db,
-            session_id=session_id,
-            role="user",
-            content=query,
-        )
+            await self.memory_service.save_message(
+                db=db,
+                session_id=session_id,
+                role="user",
+                content=query,
+            )
 
         tool_descs, tool_names = self._get_tool_descriptions()
         system_prompt = REACT_SYSTEM_PROMPT_TEMPLATE.format(
@@ -429,11 +434,24 @@ class ReActAgentRunner:
             dynamic_prefix = self.prompt_builder.build_system_prompt(user_profile)
             system_prompt = f"{dynamic_prefix}\n\n{system_prompt}"
 
-        history = await self.memory_service.get_windowed_history(db=db, session_id=session_id)
         history_str = ""
-        if len(history) > 1:
-            history_str = "\n".join(f"{m.role.capitalize()}: {m.content}" for m in history[:-1])
-            history_str = f"\nRelevant Conversation History:\n{history_str}\n"
+        if db is not None:
+            db_history = await self.memory_service.get_windowed_history(
+                db=db, session_id=session_id
+            )
+            if len(db_history) > 1:
+                history_str = "\n".join(
+                    f"{m.role.capitalize()}: {m.content}" for m in db_history[:-1]
+                )
+                history_str = f"\nRelevant Conversation History:\n{history_str}\n"
+        elif history:
+            hist_lines = [
+                f"{turn.get('role', 'user').capitalize()}: {turn.get('content', '')}"
+                for turn in history
+                if turn.get("content")
+            ]
+            if hist_lines:
+                history_str = "\nRelevant Conversation History:\n" + "\n".join(hist_lines) + "\n"
 
         prompt_scratchpad = f"{system_prompt}\n{history_str}\nUser Question: {query}\n"
         steps: list[ReActStep] = []
@@ -543,12 +561,13 @@ class ReActAgentRunner:
             final_answer = synth_resp.text or "Max iterations reached without sufficient evidence."
             termination_reason = "max_iterations_reached"
 
-        await self.memory_service.save_message(
-            db=db,
-            session_id=session_id,
-            role="assistant",
-            content=final_answer,
-        )
+        if db is not None:
+            await self.memory_service.save_message(
+                db=db,
+                session_id=session_id,
+                role="assistant",
+                content=final_answer,
+            )
 
         trace = ReActExecutionTrace(
             steps=steps,
