@@ -18,7 +18,7 @@ run:
 
 .PHONY: adk
 adk:
-	uv run adk web app/agents --port 8081
+	uv run adk web a2a_server --port 8081
 
 .PHONY: eval
 eval:
