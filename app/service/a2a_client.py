@@ -16,53 +16,74 @@ logger = get_logger("app.service.a2a_client")
 
 
 class A2AServerClient:
-    """Asynchronous HTTP client for the remote A2A Intelligence server microservice."""
+    """Asynchronous client for communicating with the remote A2A microservice via its official Agent Card."""
 
     def __init__(self, base_url: str | None = None, timeout: float = 60.0):
-        self.base_url = (base_url or settings.a2a_server_url).rstrip("/")
+        self._server_url = (base_url or settings.a2a_server_url).rstrip("/")
         self.timeout = timeout
+        self._resolved_endpoint: str | None = None
+        self._cached_card: dict[str, Any] | None = None
 
-    async def check_health(self) -> dict[str, Any]:
-        """Verify connectivity to the remote A2A intelligence server."""
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            resp = await client.get(f"{self.base_url}/health")
-            resp.raise_for_status()
-            return resp.json()
+    @property
+    def base_url(self) -> str:
+        """Return the resolved communication endpoint, falling back to initial server URL."""
+        return self._resolved_endpoint or self._server_url
 
-    async def get_agent_card(self) -> dict[str, Any]:
+    async def get_agent_card(self, force_refresh: bool = False) -> dict[str, Any]:
         """Fetch official A2A protocol Agent Card from /.well-known/agent-card.json using A2ACardResolver."""
+        if self._cached_card and not force_refresh:
+            return self._cached_card
+
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             try:
                 from a2a.client import A2ACardResolver
                 from google.protobuf.json_format import MessageToDict
 
-                resolver = A2ACardResolver(client, self.base_url)
+                resolver = A2ACardResolver(client, self._server_url)
                 card = await resolver.get_agent_card()
-                return MessageToDict(card)
+                card_dict = MessageToDict(card)
             except Exception as e:
                 logger.debug(f"A2ACardResolver fallback to direct HTTP: {e}")
-                resp = await client.get(f"{self.base_url}/.well-known/agent-card.json")
+                resp = await client.get(f"{self._server_url}/.well-known/agent-card.json")
                 resp.raise_for_status()
-                return resp.json()
+                card_dict = resp.json()
 
-    async def resolve_agent_endpoint(self) -> str:
-        """Resolve and verify target communication endpoint from the official Agent Card."""
-        try:
-            card = await self.get_agent_card()
-            interfaces = card.get("supportedInterfaces") or card.get("supported_interfaces", [])
-            if interfaces and isinstance(interfaces, list) and len(interfaces) > 0:
-                first_url = interfaces[0].get("url")
-                if first_url:
-                    # In docker networks, preserve hostname override if pointing to localhost
-                    if "localhost" in first_url and "localhost" not in self.base_url:
-                        return self.base_url
-                    return first_url.rstrip("/")
-        except Exception as e:
-            logger.warning(f"Could not resolve interface URL from agent card: {e}")
-        return self.base_url
+            self._cached_card = card_dict
+            self._update_resolved_endpoint(card_dict)
+            return card_dict
+
+    def _update_resolved_endpoint(self, card: dict[str, Any]) -> str:
+        """Extract and cache the communication endpoint declared in supportedInterfaces of the Agent Card."""
+        interfaces = card.get("supportedInterfaces") or card.get("supported_interfaces", [])
+        if interfaces and isinstance(interfaces, list) and len(interfaces) > 0:
+            url = interfaces[0].get("url")
+            if url:
+                url = url.rstrip("/")
+                # In container networks, preserve container hostname if localhost was advertised
+                if "localhost" in url and "localhost" not in self._server_url:
+                    self._resolved_endpoint = self._server_url
+                else:
+                    self._resolved_endpoint = url
+                return self._resolved_endpoint
+        self._resolved_endpoint = self._server_url
+        return self._resolved_endpoint
+
+    async def get_target_endpoint(self) -> str:
+        """Resolve target communication endpoint from the official Agent Card before communicating."""
+        if not self._resolved_endpoint:
+            await self.get_agent_card()
+        return self._resolved_endpoint or self._server_url
+
+    async def check_health(self) -> dict[str, Any]:
+        """Verify connectivity to the remote A2A microservice via resolved endpoint."""
+        endpoint = await self.get_target_endpoint()
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            resp = await client.get(f"{endpoint}/health")
+            resp.raise_for_status()
+            return resp.json()
 
     async def get_info(self) -> dict[str, Any]:
-        """Fetch remote agent metadata and registered tool catalog from the official Agent Card."""
+        """Fetch remote agent metadata and registered tool catalog derived from the official Agent Card."""
         card = await self.get_agent_card()
         skills = card.get("skills", [])
         tool_skills = [s for s in skills if "tools" in s.get("tags", [])]
@@ -94,7 +115,8 @@ class A2AServerClient:
         user_profile: UserProfileContext | None = None,
         history: list[dict[str, str]] | None = None,
     ) -> dict[str, Any]:
-        """Invoke remote ReAct agent reasoning and action loop over HTTP."""
+        """Invoke remote ReAct agent through endpoint resolved dynamically from the well-known Agent Card."""
+        endpoint = await self.get_target_endpoint()
         payload: dict[str, Any] = {
             "message": message,
             "session_id": session_id,
@@ -105,7 +127,7 @@ class A2AServerClient:
             payload["user_profile"] = user_profile.model_dump()
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            resp = await client.post(f"{self.base_url}/api/v1/chat", json=payload)
+            resp = await client.post(f"{endpoint}/api/v1/chat", json=payload)
             resp.raise_for_status()
             return resp.json()
 
@@ -118,7 +140,8 @@ class A2AServerClient:
         user_profile: UserProfileContext | None = None,
         history: list[dict[str, str]] | None = None,
     ) -> dict[str, Any]:
-        """Invoke remote Chained RAG pipeline over HTTP."""
+        """Invoke remote Chained RAG pipeline through endpoint resolved dynamically from the well-known Agent Card."""
+        endpoint = await self.get_target_endpoint()
         payload: dict[str, Any] = {
             "query": query,
             "top_k": top_k,
@@ -130,7 +153,7 @@ class A2AServerClient:
             payload["user_profile"] = user_profile.model_dump()
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            resp = await client.post(f"{self.base_url}/api/v1/query", json=payload)
+            resp = await client.post(f"{endpoint}/api/v1/query", json=payload)
             resp.raise_for_status()
             return resp.json()
 
