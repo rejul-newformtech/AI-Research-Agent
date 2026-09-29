@@ -63,70 +63,32 @@ class DynamicPromptBuilder:
     }
 
     def detect_context_domain(self, chunks: list[dict[str, Any]]) -> str:
-        """Infer scientific or technical domain from source names and chunk text."""
+        """Infer scientific, technical, or research domain dynamically from chunk metadata or sources.
+
+        Supports all academic, scientific, and professional domains dynamically without hardcoded keyword silos.
+        """
+        if not chunks:
+            return "general_academic"
+
+        # 1. Direct metadata check (e.g., ingested document tags, category, or domain field)
+        for c in chunks:
+            meta = c.get("metadata", {})
+            for key in ("domain", "topic", "subject", "category", "field"):
+                val = meta.get(key)
+                if val and isinstance(val, str) and val.strip():
+                    return val.strip().lower()
+
+        # 2. Extract from source document name if available
+        import os
         import re
 
-        combined_text = " ".join(
-            [f"{c.get('metadata', {}).get('source', '')} {c.get('text', '')[:200]}" for c in chunks]
-        ).lower()
-        words = set(re.findall(r"\b[a-zA-Z_]+\b", combined_text))
-
-        domains = [
-            (
-                "electronics",
-                [
-                    "circuit",
-                    "voltage",
-                    "transistor",
-                    "amplifier",
-                    "diode",
-                    "current",
-                    "impedance",
-                    "resistor",
-                ],
-            ),
-            (
-                "computer_science",
-                [
-                    "algorithm",
-                    "complexity",
-                    "database",
-                    "neural",
-                    "compiler",
-                    "memory",
-                    "latency",
-                    "async",
-                ],
-            ),
-            (
-                "biomedical",
-                [
-                    "protein",
-                    "gene",
-                    "cell",
-                    "clinical",
-                    "molecular",
-                    "disease",
-                    "patient",
-                    "tissue",
-                ],
-            ),
-            (
-                "physics",
-                [
-                    "quantum",
-                    "thermodynamic",
-                    "electromagnetic",
-                    "particle",
-                    "velocity",
-                    "relativity",
-                ],
-            ),
-        ]
-
-        for domain_name, keywords in domains:
-            if any(kw in words for kw in keywords):
-                return domain_name
+        for c in chunks:
+            source = str(c.get("metadata", {}).get("source", ""))
+            if source:
+                base = os.path.splitext(os.path.basename(source))[0]
+                tokens = [w.lower() for w in re.split(r"[-_ ]+", base) if w and len(w) >= 2]
+                if tokens:
+                    return "_".join(tokens)
 
         return "general_academic"
 

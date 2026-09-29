@@ -7,6 +7,7 @@ from app.schema.structured_output import UserProfileContext
 def test_detect_context_domain():
     builder = DynamicPromptBuilder()
 
+    # Inferred from source filename
     electronics_chunks = [
         {
             "text": "The operational amplifier circuit utilizes negative feedback.",
@@ -16,14 +17,25 @@ def test_detect_context_domain():
     domain = builder.detect_context_domain(electronics_chunks)
     assert domain == "electronics"
 
+    # Inferred from multi-word source filename
     cs_chunks = [
         {
             "text": "The neural network compiler optimizes tensor memory latency.",
-            "metadata": {"source": "ml_systems.txt"},
+            "metadata": {"source": "computer_science.txt"},
         }
     ]
     assert builder.detect_context_domain(cs_chunks) == "computer_science"
 
+    # Explicit domain in chunk metadata (works for any field)
+    biomed_chunks = [
+        {
+            "text": "CRISPR-Cas9 enables targeted genome editing.",
+            "metadata": {"source": "paper.pdf", "domain": "biomedical"},
+        }
+    ]
+    assert builder.detect_context_domain(biomed_chunks) == "biomedical"
+
+    # Fallback to general_academic when no domain info is provided
     unknown_chunks = [{"text": "General meeting notes and agenda.", "metadata": {}}]
     assert builder.detect_context_domain(unknown_chunks) == "general_academic"
 
