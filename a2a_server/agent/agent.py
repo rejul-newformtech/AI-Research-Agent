@@ -289,7 +289,7 @@ Final Answer: Your detailed, academic, evidence-backed answer citing specific do
 """
 
 
-class ReActAgentService:
+class ReActAgentRunner:
     """Orchestrates the ReAct reasoning, action, and observation cycle."""
 
     def __init__(
@@ -601,5 +601,9 @@ class ReActAgentService:
         )
 
 
-# Global singleton instance of the unified ReAct Agent
-react_agent = ReActAgentService()
+# Semantic aliases
+AgentRunner = ReActAgentRunner
+ReActAgentService = ReActAgentRunner
+
+# Global singleton instance of the unified ReAct Agent Runner
+react_agent = ReActAgentRunner()

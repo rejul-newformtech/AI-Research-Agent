@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from a2a_server.agent.agent import ReActAgentService
+from a2a_server.agent.agent import ReActAgentRunner
 from a2a_server.core.advanced_retrieval import ChainedRAGPipeline
 from app.api.dependencies.auth import get_current_active_user
 from app.core.config import settings
@@ -153,8 +153,8 @@ async def chat_with_agent(
         )
 
     # Default: ReAct loop execution
-    react_service = ReActAgentService(memory_service=memory_service)
-    final_answer, trace, structured = await react_service.run(
+    react_runner = ReActAgentRunner(memory_service=memory_service)
+    final_answer, trace, structured = await react_runner.run(
         query=payload.message,
         db=db,
         user_id=current_user.id,
@@ -265,14 +265,14 @@ async def delete_chat_session(
 )
 async def get_agent_info() -> dict[str, Any]:
     """Return metadata about the unified ReAct Research Assistant agent and its configured tools."""
-    react_service = ReActAgentService()
-    tool_names = list(react_service.tool_registry.keys())
+    agent_runner = ReActAgentRunner()
+    tool_names = list(agent_runner.tool_registry.keys())
     tools_manifest = [
         {
             "name": name,
             "description": (getattr(func, "__doc__", "") or "").split("\n\n")[0].strip(),
         }
-        for name, func in react_service.tool_registry.items()
+        for name, func in agent_runner.tool_registry.items()
     ]
     return {
         "name": "research_agent",
