@@ -107,6 +107,15 @@ class A2AServerClient:
             "agent_card": card,
         }
 
+    async def get_a2a_protocol_client(self):
+        """Create an official A2A protocol Client resolved from the Agent Card."""
+        from a2a.client import ClientConfig, ClientFactory
+
+        hc = httpx.AsyncClient(timeout=self.timeout)
+        config = ClientConfig(streaming=True, httpx_client=hc)
+        factory = ClientFactory(config)
+        return await factory.create_from_url(self._server_url)
+
     async def run_chat(
         self,
         message: str,
@@ -115,7 +124,63 @@ class A2AServerClient:
         user_profile: UserProfileContext | None = None,
         history: list[dict[str, str]] | None = None,
     ) -> dict[str, Any]:
-        """Invoke remote ReAct agent through endpoint resolved dynamically from the well-known Agent Card."""
+        """Invoke remote agent using official A2A protocol resolved from the Agent Card."""
+        import uuid
+
+        from a2a.types import Message, Part, Role, SendMessageRequest
+        from google.protobuf.json_format import MessageToDict
+
+        try:
+            client = await self.get_a2a_protocol_client()
+            parts = []
+            if user_profile:
+                parts.append(Part(text=f"[User Context: {user_profile.model_dump_json()}]\n"))
+            if history:
+                history_text = "\n".join(
+                    [f"{h.get('role', 'user')}: {h.get('content', '')}" for h in history[-5:]]
+                )
+                parts.append(Part(text=f"[Conversation History:\n{history_text}\n]\n"))
+            parts.append(Part(text=message))
+
+            user_msg = Message(
+                message_id=str(uuid.uuid4()),
+                role=Role.ROLE_USER,
+                parts=parts,
+            )
+            req = SendMessageRequest(message=user_msg)
+
+            final_text = ""
+            tool_traces = []
+
+            async for event in client.send_message(req):
+                event_dict = MessageToDict(event)
+                status_update = event_dict.get("statusUpdate", {})
+                status_msg = status_update.get("status", {}).get("message", {})
+                for part in status_msg.get("parts", []):
+                    if part.get("text"):
+                        final_text += part.get("text")
+                metadata = status_update.get("metadata", {})
+                if metadata.get("adk_author"):
+                    tool_traces.append(
+                        {
+                            "type": "thought",
+                            "name": metadata.get("adk_author"),
+                            "response": f"Status: {status_update.get('status', {}).get('state', '')}",
+                        }
+                    )
+
+            if final_text:
+                return {
+                    "response": final_text,
+                    "session_id": session_id,
+                    "tool_traces": tool_traces,
+                }
+        except Exception as e:
+            logger.warning(
+                f"Official A2A protocol stream encountered an issue ({e}), using resolved endpoint: {e}"
+            )
+
+        # Fallback to endpoint discovered from the Agent Card
         endpoint = await self.get_target_endpoint()
         payload: dict[str, Any] = {
             "message": message,
