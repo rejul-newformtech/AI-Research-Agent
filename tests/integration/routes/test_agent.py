@@ -305,3 +305,31 @@ def test_agent_info_endpoint(mock_get_info, client: TestClient):
     assert "list_stored_documents" in data["tools"]
     assert "ingest_stored_document" in data["tools"]
     assert "ingest_research_notes" in data["tools"]
+
+
+@patch("app.service.a2a_client.A2AServerClient.get_agent_card")
+def test_agent_card_endpoint(mock_get_card, client: TestClient):
+    """Verify GET /api/v1/agent/card proxies the official A2A protocol Agent Card."""
+    mock_get_card.return_value = {
+        "name": "research_agent",
+        "description": "An ADK Agent",
+        "supportedInterfaces": [
+            {"url": "http://localhost:8082", "protocolBinding": "JSONRPC", "protocolVersion": "1.0"}
+        ],
+        "version": "0.0.1",
+        "skills": [
+            {"id": "research_agent", "name": "model", "tags": ["llm"]},
+            {
+                "id": "research_agent-search_research_documents",
+                "name": "search_research_documents",
+                "tags": ["llm", "tools"],
+            },
+        ],
+    }
+
+    res = client.get("/api/v1/agent/card")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["name"] == "research_agent"
+    assert "supportedInterfaces" in data
+    assert len(data["skills"]) == 2

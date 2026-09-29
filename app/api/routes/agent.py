@@ -271,3 +271,21 @@ async def get_agent_info(
             "model": settings.gemini_model,
             "status": "remote_pending",
         }
+
+
+@router.get(
+    "/card",
+    summary="Retrieve Official A2A Protocol Agent Card",
+)
+async def get_agent_card(
+    a2a_client: A2AServerClient = Depends(get_a2a_client),
+) -> dict[str, Any]:
+    """Fetch the raw official Agent Card from /.well-known/agent-card.json of the A2A server."""
+    try:
+        return await a2a_client.get_agent_card()
+    except Exception as e:
+        logger.warning(f"Failed to fetch agent card: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Unable to reach remote A2A server agent card: {e}",
+        ) from e

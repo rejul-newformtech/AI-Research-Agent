@@ -29,12 +29,62 @@ class A2AServerClient:
             resp.raise_for_status()
             return resp.json()
 
-    async def get_info(self) -> dict[str, Any]:
-        """Fetch remote agent metadata and registered tool catalog."""
+    async def get_agent_card(self) -> dict[str, Any]:
+        """Fetch official A2A protocol Agent Card from /.well-known/agent-card.json using A2ACardResolver."""
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            resp = await client.get(f"{self.base_url}/api/v1/info")
-            resp.raise_for_status()
-            return resp.json()
+            try:
+                from a2a.client import A2ACardResolver
+                from google.protobuf.json_format import MessageToDict
+
+                resolver = A2ACardResolver(client, self.base_url)
+                card = await resolver.get_agent_card()
+                return MessageToDict(card)
+            except Exception as e:
+                logger.debug(f"A2ACardResolver fallback to direct HTTP: {e}")
+                resp = await client.get(f"{self.base_url}/.well-known/agent-card.json")
+                resp.raise_for_status()
+                return resp.json()
+
+    async def resolve_agent_endpoint(self) -> str:
+        """Resolve and verify target communication endpoint from the official Agent Card."""
+        try:
+            card = await self.get_agent_card()
+            interfaces = card.get("supportedInterfaces") or card.get("supported_interfaces", [])
+            if interfaces and isinstance(interfaces, list) and len(interfaces) > 0:
+                first_url = interfaces[0].get("url")
+                if first_url:
+                    # In docker networks, preserve hostname override if pointing to localhost
+                    if "localhost" in first_url and "localhost" not in self.base_url:
+                        return self.base_url
+                    return first_url.rstrip("/")
+        except Exception as e:
+            logger.warning(f"Could not resolve interface URL from agent card: {e}")
+        return self.base_url
+
+    async def get_info(self) -> dict[str, Any]:
+        """Fetch remote agent metadata and registered tool catalog from the official Agent Card."""
+        card = await self.get_agent_card()
+        skills = card.get("skills", [])
+        tool_skills = [s for s in skills if "tools" in s.get("tags", [])]
+        tool_names = [s["name"] for s in tool_skills]
+        tools_manifest = [
+            {
+                "name": s["name"],
+                "description": (s.get("description", "") or "").split("\n\n")[0].strip(),
+            }
+            for s in tool_skills
+        ]
+        return {
+            "name": card.get("name", "research_agent"),
+            "description": card.get("description", ""),
+            "framework": "ReAct (Reasoning + Action + Observation)",
+            "model": settings.gemini_model,
+            "version": card.get("version", "1.0.0"),
+            "capabilities": card.get("capabilities", {}),
+            "tools": tool_names,
+            "tools_manifest": tools_manifest,
+            "agent_card": card,
+        }
 
     async def run_chat(
         self,
