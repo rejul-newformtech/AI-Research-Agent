@@ -10,7 +10,8 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy
+    UV_LINK_MODE=copy \
+    A2A_SERVER_URL="http://a2a:8082"
 
 WORKDIR /app
 
@@ -38,8 +39,8 @@ COPY . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
-# Set permissions for the non-privileged user
-RUN chown -R appuser:appuser /app
+# Ensure storage and log directories exist with ownership for non-privileged user
+RUN mkdir -p /app/data /app/logs && chown -R appuser:appuser /app
 
 # Put the uv virtualenv into PATH
 ENV PATH="/app/.venv/bin:$PATH"

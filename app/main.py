@@ -11,9 +11,9 @@ from app.middleware.logging import RequestLoggingMiddleware
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     """Application lifespan context manager for startup and shutdown events."""
-    init_db()
+    await init_db()
     yield
 
 
@@ -27,6 +27,7 @@ app = FastAPI(
 # Register request logging middleware
 app.add_middleware(RequestLoggingMiddleware)
 
+# Versioned API routers
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(ingestion_router, prefix="/api/v1")
 app.include_router(agent_router, prefix="/api/v1")

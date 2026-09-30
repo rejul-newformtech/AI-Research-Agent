@@ -1,0 +1,242 @@
+{
+  "total_questions": 10,
+  "mean_precision_at_1": 0.9,
+  "mean_precision_at_3": 0.6,
+  "mean_answer_relevance": 0.95,
+  "hallucination_count": 0,
+  "hallucination_rate_percent": 0.0,
+  "detailed_results": [
+    {
+      "id": "Q1",
+      "category": "Exact Fact",
+      "question": "What is the scheduled shift window and role for Agent Sarah Jenkins?",
+      "is_in_corpus": true,
+      "precision_at_1": 1.0,
+      "precision_at_3": 0.5,
+      "answer_relevance": 1.0,
+      "hallucination": false,
+      "confidence_score": 1.0,
+      "synthesized_answer": "Agent Sarah Jenkins is scheduled as a Lead Supervisor with a shift window of 08:00 - 16:00.\n\nAccording to the Shift Roster Detail within the Daily Overview report, Agent AGT-101 (Sarah Jenkins) is assigned the role of Lead Supervisor and is scheduled to work the shift window of 08:00 - 16:00. Her status is recorded as Active.\n\n### Key Takeaways:\n- Agent Sarah Jenkins (AGT-101) holds the role of Lead Supervisor.\n- Her scheduled shift window runs from 08:00 to 16:00.\n- Her operational status during this shift is listed as Active.\n\n### References & Citations:\n- [Source: Agent Roster Sample.pdf, Page 1]: AGT-101 Sarah Jenkins Lead Supervisor 08:00 - 16:00 Active",
+      "citations": [
+        {
+          "source": "Agent Roster Sample.pdf",
+          "page_number": 1,
+          "section": null,
+          "quote_or_fact": "AGT-101 Sarah Jenkins Lead Supervisor 08:00 - 16:00 Active"
+        }
+      ],
+      "retrieved_chunk_count": 2
+    },
+    {
+      "id": "Q2",
+      "category": "Exact Fact",
+      "question": "Who is serving as the Dispatch Coordinator and what is their current shift?",
+      "is_in_corpus": true,
+      "precision_at_1": 1.0,
+      "precision_at_3": 0.5,
+      "answer_relevance": 1.0,
+      "hallucination": false,
+      "confidence_score": 1.0,
+      "synthesized_answer": "Tom Lawson is the Dispatch Coordinator, and his scheduled shift is from 12:00 to 20:00.\n\nAccording to the daily Shift Roster Detail, the agent designated as the Dispatch Coordinator is Tom Lawson (Agent ID: AGT-106). His shift window is scheduled from 12:00 to 20:00, and his current status is listed as Offline.\n\n### Key Takeaways:\n- Tom Lawson (AGT-106) serves as the Dispatch Coordinator.\n- His scheduled shift window is 12:00 - 20:00.\n- His operational status is currently reported as Offline.\n\n### References & Citations:\n- [Source: Agent Roster Sample.pdf, Page 1]: AGT-106 Tom Lawson Dispatch Coordinator 12:00 - 20:00 O\ufb04ine",
+      "citations": [
+        {
+          "source": "Agent Roster Sample.pdf",
+          "page_number": 1,
+          "section": null,
+          "quote_or_fact": "AGT-106 Tom Lawson Dispatch Coordinator 12:00 - 20:00 O\ufb04ine"
+        }
+      ],
+      "retrieved_chunk_count": 2
+    },
+    {
+      "id": "Q3",
+      "category": "Metrics",
+      "question": "What are the total agents, agents on duty, and overall coverage percentage in the report?",
+      "is_in_corpus": true,
+      "precision_at_1": 1.0,
+      "precision_at_3": 0.5,
+      "answer_relevance": 1.0,
+      "hallucination": false,
+      "confidence_score": 1.0,
+      "synthesized_answer": "The Agent Operations Roster indicates a total of 24 agents, 18 agents currently on duty, and an overall coverage percentage of 94.2%.\n\nAccording to the Daily Overview of the Shift Deployment & Capacity Report, the system reflects a total agent capacity of 24, with 18 agents designated as on duty. The current overall coverage is reported at 94.2%. Additionally, the report notes that 5 agents are in the queue (Agent Roster Sample.pdf, Page 1).\n\n### Key Takeaways:\n- The roster counts a total of 24 agents (Agent Roster Sample.pdf, Page 1).\n- An active workforce of 18 agents is currently on duty (Agent Roster Sample.pdf, Page 1).\n- Operational coverage is maintained at a rate of 94.2% (Agent Roster Sample.pdf, Page 1).\n\n### References & Citations:\n- [Source: Agent Roster Sample.pdf, Page 1]: TOTAL AGENTS 24\n- [Source: Agent Roster Sample.pdf, Page 1]: ON DUTY 18\n- [Source: Agent Roster Sample.pdf, Page 1]: COVERAGE 94.2%",
+      "citations": [
+        {
+          "source": "Agent Roster Sample.pdf",
+          "page_number": 1,
+          "section": null,
+          "quote_or_fact": "TOTAL AGENTS 24"
+        },
+        {
+          "source": "Agent Roster Sample.pdf",
+          "page_number": 1,
+          "section": null,
+          "quote_or_fact": "ON DUTY 18"
+        },
+        {
+          "source": "Agent Roster Sample.pdf",
+          "page_number": 1,
+          "section": null,
+          "quote_or_fact": "COVERAGE 94.2%"
+        }
+      ],
+      "retrieved_chunk_count": 2
+    },
+    {
+      "id": "Q4",
+      "category": "Multi-Hop Filter",
+      "question": "Which agents are assigned to the 08:00 - 16:00 shift window?",
+      "is_in_corpus": true,
+      "precision_at_1": 1.0,
+      "precision_at_3": 0.5,
+      "answer_relevance": 1.0,
+      "hallucination": false,
+      "confidence_score": 1.0,
+      "synthesized_answer": "Three agents are assigned to the 08:00 - 16:00 shift window: Sarah Jenkins (AGT-101), Marcus Chen (AGT-102), and Aisha Patel (AGT-105).\n\nAccording to the Shift Roster Detail in the Agent Operations Roster, the 08:00 - 16:00 shift window is allocated to three specific personnel: Sarah Jenkins (AGT-101), who serves as the Lead Supervisor with an Active status; Marcus Chen (AGT-102), who serves as Tier 2 Support with an On Call status; and Aisha Patel (AGT-105), a Tier 1 Support specialist with a status of Break. Other listed agents are assigned to later shift windows, specifically 09:00 - 17:00, 10:00 - 18:00, and 12:00 - 20:00.\n\n### Key Takeaways:\n- A total of three agents are scheduled for the 08:00 - 16:00 shift window.\n- The 08:00 - 16:00 shift window includes varying roles: Lead Supervisor, Tier 2 Support, and Tier 1 Support.\n- The operational statuses of the agents in this shift window vary, spanning Active, On Call, and Break.\n\n### References & Citations:\n- [Source: Agent Roster Sample.pdf, Page 1]: AGT-101 Sarah Jenkins Lead Supervisor 08:00 - 16:00 Active\n- [Source: Agent Roster Sample.pdf, Page 1]: AGT-102 Marcus Chen Tier 2 Support 08:00 - 16:00 On Call\n- [Source: Agent Roster Sample.pdf, Page 1]: AGT-105 Aisha Patel Tier 1 Support 08:00 - 16:00 Break",
+      "citations": [
+        {
+          "source": "Agent Roster Sample.pdf",
+          "page_number": 1,
+          "section": null,
+          "quote_or_fact": "AGT-101 Sarah Jenkins Lead Supervisor 08:00 - 16:00 Active"
+        },
+        {
+          "source": "Agent Roster Sample.pdf",
+          "page_number": 1,
+          "section": null,
+          "quote_or_fact": "AGT-102 Marcus Chen Tier 2 Support 08:00 - 16:00 On Call"
+        },
+        {
+          "source": "Agent Roster Sample.pdf",
+          "page_number": 1,
+          "section": null,
+          "quote_or_fact": "AGT-105 Aisha Patel Tier 1 Support 08:00 - 16:00 Break"
+        }
+      ],
+      "retrieved_chunk_count": 2
+    },
+    {
+      "id": "Q5",
+      "category": "Role Filter",
+      "question": "Which agents currently hold Tier 1 Support roles?",
+      "is_in_corpus": true,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.5,
+      "answer_relevance": 1.0,
+      "hallucination": false,
+      "confidence_score": 1.0,
+      "synthesized_answer": "The agents currently holding Tier 1 Support roles are Aisha Patel (AGT-105) and Rachel Green (AGT-107).\n\nBased on the shift roster details provided in the daily overview of agent operations, two agents are identified under the 'Tier 1 Support' role. Agent AGT-105, Aisha Patel, is assigned to the 08:00 - 16:00 shift and currently has a status of 'Break'. Agent AGT-107, Rachel Green, is assigned to the 09:00 - 17:00 shift and currently has an 'Active' status.\n\n### Key Takeaways:\n- Aisha Patel (AGT-105) holds a Tier 1 Support role and is currently on a break.\n- Rachel Green (AGT-107) holds a Tier 1 Support role and is currently active on shift.\n\n### References & Citations:\n- [Source: Agent Roster Sample.pdf, Page 1]: AGT-105 Aisha Patel Tier 1 Support 08:00 - 16:00 Break\n- [Source: Agent Roster Sample.pdf, Page 1]: AGT-107 Rachel Green Tier 1 Support 09:00 - 17:00 Active",
+      "citations": [
+        {
+          "source": "Agent Roster Sample.pdf",
+          "page_number": 1,
+          "section": null,
+          "quote_or_fact": "AGT-105 Aisha Patel Tier 1 Support 08:00 - 16:00 Break"
+        },
+        {
+          "source": "Agent Roster Sample.pdf",
+          "page_number": 1,
+          "section": null,
+          "quote_or_fact": "AGT-107 Rachel Green Tier 1 Support 09:00 - 17:00 Active"
+        }
+      ],
+      "retrieved_chunk_count": 2
+    },
+    {
+      "id": "Q6",
+      "category": "Status Filter",
+      "question": "Identify all agents whose current status is either On Call or Offline.",
+      "is_in_corpus": true,
+      "precision_at_1": 1.0,
+      "precision_at_3": 0.5,
+      "answer_relevance": 1.0,
+      "hallucination": false,
+      "confidence_score": 1.0,
+      "synthesized_answer": "The agents identified with 'On Call' or 'Offline' (rendered as 'O\ufb04ine') status are Marcus Chen (AGT-102) and Tom Lawson (AGT-106), respectively.\n\nAn analysis of the 'SHIFT ROSTER DETAIL' table on Page 1 of the 'Agent Roster Sample.pdf' reveals the statuses of the listed agents. Among the seven agents detailed, Marcus Chen (Agent ID: AGT-102), who operates as Tier 2 Support on the 08:00 - 16:00 shift, is designated as 'On Call'. Tom Lawson (Agent ID: AGT-106), who serves as Dispatch Coordinator on the 12:00 - 20:00 shift, is designated as 'O\ufb04ine'. All other listed agents are marked as 'Active' or 'Break'.\n\n### Key Takeaways:\n- Agent Marcus Chen (AGT-102) is the sole agent listed with 'On Call' status.\n- Agent Tom Lawson (AGT-106) is the sole agent listed with 'O\ufb04ine' status.\n\n### References & Citations:\n- [Source: Agent Roster Sample.pdf, Page 1]: AGT-102 Marcus Chen Tier 2 Support 08:00 - 16:00 On Call\n- [Source: Agent Roster Sample.pdf, Page 1]: AGT-106 Tom Lawson Dispatch Coordinator 12:00 - 20:00 O\ufb04ine",
+      "citations": [
+        {
+          "source": "Agent Roster Sample.pdf",
+          "page_number": 1,
+          "section": null,
+          "quote_or_fact": "AGT-102 Marcus Chen Tier 2 Support 08:00 - 16:00 On Call"
+        },
+        {
+          "source": "Agent Roster Sample.pdf",
+          "page_number": 1,
+          "section": null,
+          "quote_or_fact": "AGT-106 Tom Lawson Dispatch Coordinator 12:00 - 20:00 O\ufb04ine"
+        }
+      ],
+      "retrieved_chunk_count": 2
+    },
+    {
+      "id": "Q7",
+      "category": "Semantic Paraphrase",
+      "question": "Who is the field operative scheduled for duty during late afternoon?",
+      "is_in_corpus": true,
+      "precision_at_1": 1.0,
+      "precision_at_3": 0.5,
+      "answer_relevance": 1.0,
+      "hallucination": false,
+      "confidence_score": 1.0,
+      "synthesized_answer": "The field operative scheduled for duty during the late afternoon is David Miller (Agent ID: AGT-104), who works as a Field Agent with an active shift from 10:00 to 18:00.\n\nAccording to the shift roster details in the Agent Operations Roster, David Miller (Agent ID: AGT-104) holds the role of 'Field Agent' (representing the field operative). His shift window spans from 10:00 to 18:00, covering the late afternoon period, and his status is registered as 'Active'. No other field agents are scheduled in the provided roster.\n\n### Key Takeaways:\n- David Miller (AGT-104) is the only designated Field Agent on the roster.\n- His shift covers the late afternoon, concluding at 18:00.\n- His operational status during this shift window is 'Active'.\n\n### References & Citations:\n- [Source: Agent Roster Sample.pdf, Page 1]: AGT-104 David Miller Field Agent 10:00 - 18:00 Active",
+      "citations": [
+        {
+          "source": "Agent Roster Sample.pdf",
+          "page_number": 1,
+          "section": null,
+          "quote_or_fact": "AGT-104 David Miller Field Agent 10:00 - 18:00 Active"
+        }
+      ],
+      "retrieved_chunk_count": 2
+    },
+    {
+      "id": "Q8",
+      "category": "Semantic Paraphrase",
+      "question": "What is the operational metric for staff actively handling waiting queues?",
+      "is_in_corpus": true,
+      "precision_at_1": 1.0,
+      "precision_at_3": 0.5,
+      "answer_relevance": 0.5,
+      "hallucination": false,
+      "confidence_score": 0.0,
+      "synthesized_answer": "Error synthesizing research answer: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}",
+      "citations": [],
+      "retrieved_chunk_count": 2
+    },
+    {
+      "id": "Q9",
+      "category": "Hallucination Bait (Negative)",
+      "question": "What is the annual salary and bonus compensation package for Agent Sarah Jenkins?",
+      "is_in_corpus": false,
+      "precision_at_1": 1.0,
+      "precision_at_3": 1.0,
+      "answer_relevance": 1.0,
+      "hallucination": false,
+      "confidence_score": 0.0,
+      "synthesized_answer": "The provided source documents do not contain any information regarding the annual salary or bonus compensation package for Agent Sarah Jenkins.\n\nThe retrieved documents contain daily operational roster deployment and capacity metrics, but lack any financial, payroll, or compensation data. The records indicate that Agent Sarah Jenkins (Agent ID: AGT-101) holds the role of Lead Supervisor, has an 'Active' status, and works a shift window of 08:00 - 16:00 (Agent Roster Sample.pdf, Page 1). No salary, wage, or bonus information is present in the dataset.\n\n### Key Takeaways:\n- Agent Sarah Jenkins is listed as a Lead Supervisor with an active shift from 08:00 to 16:00.\n- The source documents are strictly limited to operational metrics and scheduling information, with no financial compensation data provided.\n\n### References & Citations:\n- [Source: Agent Roster Sample.pdf, Page 1]: AGT-101 Sarah Jenkins Lead Supervisor 08:00 - 16:00 Active",
+      "citations": [
+        {
+          "source": "Agent Roster Sample.pdf",
+          "page_number": 1,
+          "section": null,
+          "quote_or_fact": "AGT-101 Sarah Jenkins Lead Supervisor 08:00 - 16:00 Active"
+        }
+      ],
+      "retrieved_chunk_count": 2
+    },
+    {
+      "id": "Q10",
+      "category": "Hallucination Bait (Negative)",
+      "question": "What emergency fire evacuation protocol is specified in the roster report?",
+      "is_in_corpus": false,
+      "precision_at_1": 1.0,
+      "precision_at_3": 1.0,
+      "answer_relevance": 1.0,
+      "hallucination": false,
+      "confidence_score": 1.0,
+      "synthesized_answer": "The provided roster report does not contain any emergency fire evacuation protocols.\n\nBased strictly on the provided excerpts from 'Agent Roster Sample.pdf' (Page 1 and Page 2), there is no mention of emergency fire evacuation protocols or any safety procedures. The document exclusively details operational metrics (e.g., total agents, coverage, on-duty status), individual agent shift assignments, and a system test note regarding layout rendering and UI components.\n\n### Key Takeaways:\n- The retrieved document is limited to a shift deployment and capacity report containing live test data.\n- Emergency, safety, or evacuation protocols are entirely absent from the provided excerpts.",
+      "citations": [],
+      "retrieved_chunk_count": 2
+    }
+  ]
+}

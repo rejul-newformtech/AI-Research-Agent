@@ -131,8 +131,8 @@ def setup_logger(
     if logger.handlers:
         return logger
 
-    # 1. Console Handler with color formatting
-    console_handler = logging.StreamHandler(sys.stdout)
+    # 1. Console Handler with color formatting (directed to stderr to keep stdout clean for MCP stdio)
+    console_handler = logging.StreamHandler(sys.stderr)
     console_handler.setLevel(log_level)
     console_format = ColoredFormatter(
         fmt="[%(asctime)s] [%(levelname)s] [%(name)s:%(lineno)d] - %(message)s",

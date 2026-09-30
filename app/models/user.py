@@ -1,20 +1,19 @@
 """User SQLAlchemy ORM model and role definitions."""
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from sqlalchemy import Boolean, DateTime, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.session import Base
+from app.db.base import Base
 
 
-class UserRole(str, Enum):
+class UserRole(StrEnum):
     """User authorization roles."""
 
     ADMIN = "admin"
     RESEARCHER = "researcher"
-    USER = "user"
 
 
 class User(Base):
